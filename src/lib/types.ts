@@ -9,3 +9,14 @@ export type Step = {
 };
 
 export type Temperature = "QUENTE" | "MORNO" | "FRIO";
+
+/** Resposta de POST /api/lead. */
+export type LeadResponse =
+  | {
+      ok: true;
+      leadId: string | null;
+      status: "COMPLETO" | "PARCIAL";
+      temperature: Temperature;
+      steps: Step[];
+    }
+  | { ok: false; error: string; fieldErrors?: Record<string, string[] | undefined> };
