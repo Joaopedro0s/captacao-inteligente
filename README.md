@@ -4,7 +4,7 @@ Automação de captação de leads com IA para pequenas empresas de serviços: o
 
 > **Projeto de portfólio.** A empresa (Lume Estética Automotiva), os clientes e os depoimentos são fictícios.
 
-**Demo ao vivo:** https://captacao-inteligente.vercel.app · [painel da automação](https://captacao-inteligente.vercel.app/demo/leads)
+**Demo ao vivo:** https://captacao-inteligente-teal.vercel.app · [painel da automação](https://captacao-inteligente-teal.vercel.app/demo/leads)
 
 | Landing com formulário | Painel da automação |
 | --- | --- |
@@ -164,7 +164,7 @@ Todas estão documentadas em [`.env.example`](.env.example).
 Para restaurar os dados de demonstração depois que visitantes testarem o app:
 
 ```bash
-curl -X POST https://captacao-inteligente.vercel.app/api/demo/reset -H "Authorization: Bearer SEU_RESET_TOKEN"
+curl -X POST https://captacao-inteligente-teal.vercel.app/api/demo/reset -H "Authorization: Bearer SEU_RESET_TOKEN"
 ```
 
 ## Alternativa com n8n
