@@ -27,4 +27,3 @@ export function withTimeout<T>(promise: Promise<T>, ms: number, label: string): 
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-export const errorMessage = (err: unknown) => (err instanceof Error ? err.message : String(err)).slice(0, 300);

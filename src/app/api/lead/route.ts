@@ -2,6 +2,7 @@ import { config } from "@/lib/config";
 import { fieldErrorsOf, leadSchema } from "@/lib/lead-schema";
 import { processLead } from "@/lib/pipeline";
 import { checkAndRecord, clientIp, hashIp } from "@/lib/rate-limit";
+import { publicSteps } from "@/lib/step-messages";
 import type { LeadResponse } from "@/lib/types";
 
 const fail = (status: number, error: string, extra: Partial<Extract<LeadResponse, { ok: false }>> = {}, headers?: HeadersInit) =>
@@ -48,5 +49,5 @@ export async function POST(request: Request) {
     status: "ok",
     ms: Math.round(performance.now() - started),
   });
-  return Response.json({ ok: true, ...result } satisfies LeadResponse);
+  return Response.json({ ok: true, ...result, steps: publicSteps(result.steps) } satisfies LeadResponse);
 }

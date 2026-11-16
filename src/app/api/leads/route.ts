@@ -1,6 +1,7 @@
 import { connection } from "next/server";
 import { prisma } from "@/lib/db";
 import { maskEmail, maskPhone } from "@/lib/mask";
+import { publicSteps } from "@/lib/step-messages";
 import type { PanelLead, Step } from "@/lib/types";
 
 /** Leads mais recentes para o painel público, com contato mascarado. */
@@ -20,7 +21,7 @@ export async function GET() {
       reason: l.reason,
       reply: l.reply,
       status: l.status,
-      steps: l.steps as unknown as Step[],
+      steps: publicSteps(l.steps as unknown as Step[]),
     }));
     return Response.json(body, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {

@@ -5,7 +5,7 @@ import { prisma } from "./db";
 import { resolveRecipient, sendEmail } from "./email";
 import type { LeadInput } from "./lead-schema";
 import { maskEmail } from "./mask";
-import { errorMessage } from "./retry";
+import { STEP_MESSAGES } from "./step-messages";
 import type { Step } from "./types";
 
 const elapsed = (start: number) => Math.round(performance.now() - start);
@@ -31,16 +31,17 @@ export async function processLead(input: LeadInput, validationStep: Step) {
         key: "classificacao",
         label: "Classificação por IA",
         status: "erro",
-        detail: "A IA devolveu JSON inválido duas vezes. Usada a classificação padrão (morno).",
+        detail: STEP_MESSAGES.aiInvalidFormat,
         ms: elapsed(t),
       });
     }
   } catch (err) {
+    console.error("lead: falha na classificação por IA", err);
     steps.push({
       key: "classificacao",
       label: "Classificação por IA",
       status: "erro",
-      detail: `${errorMessage(err)}. Usada a classificação padrão (morno).`,
+      detail: STEP_MESSAGES.aiUnavailableClassification,
       ms: elapsed(t),
     });
   }
@@ -68,7 +69,7 @@ export async function processLead(input: LeadInput, validationStep: Step) {
     steps.push({ key: "gravacao", label: "Gravação no banco", status: "ok", ms: elapsed(t) });
   } catch (err) {
     console.error("lead: falha ao gravar", err);
-    steps.push({ key: "gravacao", label: "Gravação no banco", status: "erro", detail: errorMessage(err), ms: elapsed(t) });
+    steps.push({ key: "gravacao", label: "Gravação no banco", status: "erro", detail: STEP_MESSAGES.dbFailed, ms: elapsed(t) });
   }
 
   // 4. Resposta personalizada (com texto padrão se a IA falhar)
@@ -81,15 +82,16 @@ export async function processLead(input: LeadInput, validationStep: Step) {
       key: "resposta",
       label: "Resposta personalizada",
       status: "ok",
-      detail: generated.replaced ? "A resposta citava preço ou prazo; trocada pelo texto padrão." : undefined,
+      detail: generated.replaced ? STEP_MESSAGES.replyFiltered : undefined,
       ms: elapsed(t),
     });
   } catch (err) {
+    console.error("lead: falha ao gerar resposta por IA", err);
     steps.push({
       key: "resposta",
       label: "Resposta personalizada",
       status: "erro",
-      detail: `${errorMessage(err)}. Usado o texto padrão.`,
+      detail: STEP_MESSAGES.aiUnavailableReply,
       ms: elapsed(t),
     });
   }
@@ -141,12 +143,16 @@ async function emailStep(
   lines: string[],
 ): Promise<Step> {
   const recipient = resolveRecipient(intended);
-  if ("skip" in recipient) return { key, label, status: "pulada", detail: recipient.skip, ms: 0 };
+  if ("skip" in recipient) {
+    console.warn(`lead: ${key} pulado (${recipient.skip})`);
+    return { key, label, status: "pulada", detail: STEP_MESSAGES.emailSkipped, ms: 0 };
+  }
   const t = performance.now();
   try {
     await sendEmail(recipient.to, subject, lines.join("\n"));
     return { key, label, status: "ok", ms: elapsed(t) };
   } catch (err) {
-    return { key, label, status: "erro", detail: errorMessage(err), ms: elapsed(t) };
+    console.error(`lead: falha no ${key}`, err);
+    return { key, label, status: "erro", detail: STEP_MESSAGES.emailFailed, ms: elapsed(t) };
   }
 }

@@ -1,4 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
+import { STEP_MESSAGES } from "./step-messages";
 import type { Step } from "./types";
 
 // Dados 100% fictícios: nomes inventados, e-mails em example.com e telefones fora de uso.
@@ -81,7 +82,7 @@ export function seedLeads(): Prisma.LeadCreateManyInput[] {
           key: "email_cliente",
           label: "E-mail ao cliente",
           status: "erro",
-          detail: "Provedor de e-mail indisponível após 3 tentativas.",
+          detail: STEP_MESSAGES.emailFailed,
           ms: 3120,
         },
         { key: "email_equipe", label: "Aviso à equipe", status: "ok", ms: 395 },
