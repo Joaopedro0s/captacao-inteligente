@@ -11,6 +11,7 @@ import {
   type LeadField,
 } from "@/lib/lead-schema";
 import type { LeadResponse, Step } from "@/lib/types";
+import { IconX } from "./Icons";
 import { StepList } from "./StepList";
 
 type State =
@@ -22,7 +23,7 @@ type State =
 const FIELD_ORDER: LeadField[] = ["name", "phone", "email", "service", "message", "consent"];
 
 const inputClass =
-  "w-full rounded-md border border-line bg-bg px-3 py-2 text-text placeholder:text-muted/70 aria-[invalid=true]:border-danger";
+  "w-full rounded-lg border border-line-strong bg-bg px-3.5 py-3 text-text placeholder:text-muted transition-colors focus-visible:border-accent aria-[invalid=true]:border-danger";
 
 export function LeadForm() {
   const formRef = useRef<HTMLFormElement>(null);
@@ -91,8 +92,8 @@ export function LeadForm() {
 
   return (
     <div>
-      <form ref={formRef} onSubmit={onSubmit} noValidate className="space-y-5" aria-busy={loading}>
-        <div className="grid gap-5 sm:grid-cols-2">
+      <form ref={formRef} onSubmit={onSubmit} noValidate className="space-y-6" aria-busy={loading}>
+        <div className="grid gap-6 sm:grid-cols-2">
           <Field id="name" label="Nome" error={err("name")}>
             <input
               id="name"
@@ -179,7 +180,7 @@ export function LeadForm() {
               id="consent"
               name="consent"
               type="checkbox"
-              className="mt-1 size-4 shrink-0 accent-accent"
+              className="mt-0.5 size-5 shrink-0 accent-accent"
               aria-invalid={!!err("consent")}
               aria-describedby={describedBy("consent")}
             />
@@ -187,14 +188,15 @@ export function LeadForm() {
               Concordo com o uso dos meus dados para receber este orçamento, conforme a LGPD. A mensagem é
               analisada pelo Google Gemini, no plano gratuito, em que o Google pode usar o conteúdo para melhorar
               seus produtos. Nesta demonstração, o pedido aparece no{" "}
-              <Link href="/demo/leads" className="text-accent underline underline-offset-2">
+              <Link href="/demo/leads" className="text-accent underline underline-offset-4 hover:text-accent-hover">
                 painel público de leads
               </Link>{" "}
               com nome abreviado, e-mail e telefone mascarados e mensagem encurtada.
             </label>
           </div>
           {err("consent") && (
-            <p id="consent-error" className="mt-1 text-sm text-danger">
+            <p id="consent-error" className="mt-2 flex items-center gap-1.5 text-sm text-danger">
+              <IconX className="size-4 shrink-0" />
               {err("consent")}
             </p>
           )}
@@ -203,7 +205,7 @@ export function LeadForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-md bg-accent px-5 py-3 font-semibold text-accent-ink disabled:opacity-60 sm:w-auto"
+          className="w-full rounded-lg bg-accent px-6 py-4 text-base font-medium text-accent-ink transition-colors hover:bg-accent-hover disabled:opacity-60"
         >
           {loading ? "Enviando…" : "Pedir orçamento"}
         </button>
@@ -212,8 +214,8 @@ export function LeadForm() {
       <div aria-live="polite" className="mt-6">
         {loading && <p className="text-sm text-muted">Classificando seu pedido e preparando a resposta…</p>}
         {state.kind === "success" && (
-          <div className="rounded-lg border border-line bg-surface p-5">
-            <p className="font-semibold">Pedido recebido. Obrigado!</p>
+          <div className="rounded-lg border border-line bg-surface-2 p-5">
+            <p className="font-medium">Pedido recebido. Obrigado!</p>
             <p className="mt-1 text-sm text-muted">
               {state.status === "COMPLETO"
                 ? "A automação concluiu todas as etapas."
@@ -223,14 +225,14 @@ export function LeadForm() {
             <div className="mt-4">
               <StepList steps={state.steps} />
             </div>
-            <Link href="/demo/leads" className="mt-4 inline-block text-sm text-accent underline underline-offset-2">
+            <Link href="/demo/leads" className="mt-4 inline-block text-sm text-accent underline underline-offset-4 hover:text-accent-hover">
               Ver este lead no painel
             </Link>
           </div>
         )}
       </div>
       {state.kind === "error" && (
-        <p role="alert" className="mt-6 rounded-lg border border-danger/50 bg-surface p-4 text-sm text-danger">
+        <p role="alert" className="mt-6 rounded-lg border border-danger/50 bg-surface-2 p-4 text-sm text-danger">
           {state.message}
         </p>
       )}
@@ -251,12 +253,13 @@ function Field({
 }) {
   return (
     <div>
-      <label htmlFor={id} className="mb-1 block text-sm font-medium">
+      <label htmlFor={id} className="mb-2 block text-sm font-medium">
         {label}
       </label>
       {children}
       {error && (
-        <p id={`${id}-error`} className="mt-1 text-sm text-danger">
+        <p id={`${id}-error`} className="mt-2 flex items-center gap-1.5 text-sm text-danger">
+          <IconX className="size-4 shrink-0" />
           {error}
         </p>
       )}

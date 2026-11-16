@@ -1,17 +1,28 @@
 @import "tailwindcss";
 
-/* Tema escuro único com um acento (âmbar). Contrastes conferidos para AA sobre --color-bg e --color-surface. */
+/*
+ * Paleta única (tema escuro). Toda cor do app sai daqui.
+ * Contrastes (WCAG): text/bg 21:1 · muted/surface-2 7,2:1 · accent/bg 5,5:1 ·
+ * accent-ink sobre accent 5,5:1 · branco sobre accent-solid 4,75:1 · danger/bg 7,6:1.
+ */
 @theme {
-  --color-bg: #0e1013;
-  --color-surface: #161a1f;
-  --color-line: #2b3139;
-  --color-text: #e9ebee;
-  --color-muted: #a6adb7;
-  --color-accent: #f2b544;
-  --color-accent-ink: #1b1404;
-  --color-danger: #f4978e;
+  --color-bg: #020002;
+  --color-surface: #0b0a0f;
+  --color-surface-2: #14131b;
+  --color-line: rgb(255 255 255 / 0.08);
+  --color-line-strong: rgb(255 255 255 / 0.18);
+  --color-text: #ffffff;
+  --color-muted: #a3a3b3;
+  --color-accent: #6e74f7;
+  --color-accent-hover: #8a8ff9;
+  /* Índigo um tom mais escuro só para fundos com texto branco (badge "quente"): mantém AA. */
+  --color-accent-solid: #5b61f0;
+  --color-accent-ink: #050414;
+  --color-danger: #f87171;
+
   --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-barlow-condensed);
+  --font-mono: var(--font-jetbrains-mono);
 }
 
 :root {
@@ -26,6 +37,13 @@ html {
   html {
     scroll-behavior: auto;
   }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 body {
@@ -36,4 +54,15 @@ body {
 :focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
+}
+
+/* Etapa em execução na prévia da automação: pulso curto, desligado com movimento reduzido. */
+@keyframes step-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(110 116 247 / 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgb(110 116 247 / 0);
+  }
 }

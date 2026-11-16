@@ -1,29 +1,68 @@
 import Link from "next/link";
+import { AutomationPreview } from "@/components/AutomationPreview";
 import { DemoBanner } from "@/components/DemoBanner";
 import { Faq } from "@/components/Faq";
+import {
+  IconClassify,
+  IconDatabase,
+  IconDroplet,
+  IconForm,
+  IconLayers,
+  IconPolish,
+  IconSeat,
+  IconSend,
+  IconShield,
+} from "@/components/Icons";
 import { LeadForm } from "@/components/LeadForm";
+import { SiteHeader } from "@/components/SiteHeader";
 
 const services = [
   {
     name: "Lavagem detalhada",
+    icon: IconDroplet,
     text: "Limpeza técnica de pintura, rodas, caixas de roda e acabamentos, com produtos de pH neutro.",
   },
   {
     name: "Polimento técnico",
+    icon: IconPolish,
     text: "Correção de riscos de lavagem, marcas e oxidação para recuperar brilho e profundidade da cor.",
   },
   {
     name: "Vitrificação de pintura",
+    icon: IconShield,
     text: "Camada cerâmica que protege contra raios UV, chuva ácida e sujeira, e facilita as próximas lavagens.",
   },
   {
     name: "Higienização interna",
+    icon: IconSeat,
     text: "Bancos, carpetes, teto e dutos de ar: remoção de manchas, odores e ácaros.",
   },
   {
     name: "Película de proteção (PPF)",
+    icon: IconLayers,
     text: "Filme transparente contra pedras e riscos nas áreas mais expostas: capô, para-choque e retrovisores.",
   },
+];
+
+const howItWorks = [
+  { title: "Formulário", icon: IconForm, text: "O pedido chega pelo site, validado no navegador e no servidor." },
+  {
+    title: "Classificação por IA",
+    icon: IconClassify,
+    text: "A IA marca o lead como quente, morno ou frio e explica o motivo.",
+  },
+  { title: "Banco de dados", icon: IconDatabase, text: "O lead é salvo com a classificação e o status de cada etapa." },
+  {
+    title: "Resposta e aviso",
+    icon: IconSend,
+    text: "O cliente recebe uma resposta personalizada e a equipe, um resumo.",
+  },
+];
+
+const stats = [
+  { value: "1.200+", label: "carros atendidos" },
+  { value: "4,9", label: "nota média" },
+  { value: "8", label: "anos de oficina" },
 ];
 
 const testimonials = [
@@ -64,100 +103,130 @@ const faq = [
   },
 ];
 
+const container = "mx-auto w-full max-w-6xl px-4 sm:px-6";
+const section = "border-t border-line py-20 sm:py-28";
+const h2 = "font-display text-4xl uppercase leading-none tracking-wide sm:text-5xl";
+const eyebrow = "text-sm font-medium text-muted";
+
 export default function Home() {
   return (
     <>
       <DemoBanner />
-
-      <header className="border-b border-line">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-4">
-          <Link href="/" className="text-lg font-semibold tracking-tight">
-            Lume <span className="font-normal text-muted">Estética Automotiva</span>
-          </Link>
-          <nav aria-label="Principal">
-            <ul className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-muted">
-              <li>
-                <a href="#servicos" className="hover:text-text">
-                  Serviços
-                </a>
-              </li>
-              <li>
-                <a href="#faq" className="hover:text-text">
-                  Dúvidas
-                </a>
-              </li>
-              <li>
-                <a href="#orcamento" className="text-accent hover:underline">
-                  Orçamento
-                </a>
-              </li>
-            </ul>
-          </nav>
-        </div>
-      </header>
+      <SiteHeader
+        links={[
+          { href: "#como-funciona", label: "Como funciona" },
+          { href: "#servicos", label: "Serviços" },
+          { href: "#faq", label: "Dúvidas" },
+          { href: "#orcamento", label: "Orçamento", primary: true },
+        ]}
+      />
 
       <main id="conteudo" tabIndex={-1} className="flex-1 focus:outline-none">
-        <section className="mx-auto max-w-5xl px-4 py-16 sm:py-24">
-          <p className="text-sm font-medium uppercase tracking-wider text-accent">São Paulo · Zona Oeste</p>
-          <h1 className="mt-3 max-w-3xl text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
-            Cuidado técnico para a pintura e o interior do seu carro.
-          </h1>
-          <p className="mt-5 max-w-2xl text-lg text-muted">
-            Lavagem detalhada, polimento, vitrificação e higienização feitos com método. Peça um orçamento e receba
-            uma resposta em minutos, inclusive fora do horário comercial.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <a href="#orcamento" className="rounded-md bg-accent px-5 py-3 font-semibold text-accent-ink">
-              Pedir orçamento
-            </a>
-            <Link href="/demo/leads" className="rounded-md border border-line px-5 py-3 font-medium hover:border-muted">
-              Ver a automação ao vivo
-            </Link>
+        <section className={`${container} grid items-center gap-12 py-16 sm:py-24 lg:grid-cols-2 lg:gap-16`}>
+          <div>
+            <p className={eyebrow}>Estética automotiva · São Paulo</p>
+            <h1 className="mt-4 font-display text-6xl uppercase leading-[0.92] tracking-wide sm:text-7xl">
+              Cuidado técnico para a pintura e o interior do seu carro
+            </h1>
+            <p className="mt-6 max-w-xl text-lg text-muted">
+              Lavagem detalhada, polimento, vitrificação e higienização feitos com método. Peça um orçamento e receba
+              uma resposta em minutos, inclusive fora do horário comercial.
+            </p>
+            <div className="mt-10 flex flex-wrap gap-3">
+              <a
+                href="#orcamento"
+                className="rounded-lg bg-accent px-6 py-3.5 font-medium text-accent-ink transition-colors hover:bg-accent-hover"
+              >
+                Pedir orçamento
+              </a>
+              <Link
+                href="/demo/leads"
+                className="rounded-lg border border-line-strong px-6 py-3.5 font-medium transition-colors hover:border-accent"
+              >
+                Ver a automação ao vivo
+              </Link>
+            </div>
+          </div>
+          <AutomationPreview />
+        </section>
+
+        <section id="como-funciona" aria-labelledby="como-funciona-titulo" className={section}>
+          <div className={container}>
+            <p className={eyebrow}>O que acontece depois do envio</p>
+            <h2 id="como-funciona-titulo" className={`mt-3 ${h2}`}>
+              Como funciona
+            </h2>
+            <ol className="mt-12 grid gap-0 md:grid-cols-4 md:gap-8">
+              {howItWorks.map((step, i) => {
+                const Icon = step.icon;
+                const last = i === howItWorks.length - 1;
+                return (
+                  <li key={step.title} className="relative flex gap-5 pb-10 md:block md:pb-0">
+                    {!last && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute left-6 top-14 bottom-2 w-px bg-line md:left-16 md:right-[-1rem] md:top-6 md:bottom-auto md:h-px md:w-auto"
+                      />
+                    )}
+                    <span className="relative grid size-12 shrink-0 place-items-center rounded-full border border-line-strong bg-surface text-text">
+                      <Icon className="size-5" />
+                    </span>
+                    <div className="md:mt-6">
+                      <p className="font-mono text-xs text-muted">0{i + 1}</p>
+                      <h3 className="mt-1 text-lg font-medium">{step.title}</h3>
+                      <p className="mt-2 text-sm text-muted">{step.text}</p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
           </div>
         </section>
 
-        <section id="servicos" aria-labelledby="servicos-titulo" className="border-t border-line">
-          <div className="mx-auto max-w-5xl px-4 py-16">
-            <h2 id="servicos-titulo" className="text-2xl font-semibold tracking-tight">
+        <section id="servicos" aria-labelledby="servicos-titulo" className={section}>
+          <div className={container}>
+            <p className={eyebrow}>O que fazemos</p>
+            <h2 id="servicos-titulo" className={`mt-3 ${h2}`}>
               Serviços
             </h2>
-            <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {services.map((s) => (
-                <li key={s.name} className="rounded-lg border border-line bg-surface p-5">
-                  <h3 className="font-semibold">{s.name}</h3>
-                  <p className="mt-2 text-sm text-muted">{s.text}</p>
-                </li>
-              ))}
+            <ul className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {services.map((s) => {
+                const Icon = s.icon;
+                return (
+                  <li
+                    key={s.name}
+                    className="rounded-xl border border-line bg-surface p-7 transition-colors hover:border-line-strong"
+                  >
+                    <Icon className="size-6 text-muted" />
+                    <h3 className="mt-6 text-lg font-medium">{s.name}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-muted">{s.text}</p>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         </section>
 
-        <section aria-labelledby="prova-titulo" className="border-t border-line">
-          <div className="mx-auto max-w-5xl px-4 py-16">
-            <h2 id="prova-titulo" className="text-2xl font-semibold tracking-tight">
+        <section aria-labelledby="prova-titulo" className={section}>
+          <div className={container}>
+            <p className={eyebrow}>Depoimentos e números fictícios, criados para esta demonstração</p>
+            <h2 id="prova-titulo" className={`mt-3 ${h2}`}>
               Quem já passou por aqui
             </h2>
-            <p className="mt-2 text-sm text-muted">Depoimentos fictícios, criados para esta demonstração.</p>
-            <dl className="mt-8 grid grid-cols-3 gap-4 border-y border-line py-6 text-center">
-              <div className="flex flex-col">
-                <dt className="text-xs text-muted sm:text-sm">carros atendidos</dt>
-                <dd className="order-first text-2xl font-semibold sm:text-3xl">1.200+</dd>
-              </div>
-              <div className="flex flex-col">
-                <dt className="text-xs text-muted sm:text-sm">nota média</dt>
-                <dd className="order-first text-2xl font-semibold sm:text-3xl">4,9</dd>
-              </div>
-              <div className="flex flex-col">
-                <dt className="text-xs text-muted sm:text-sm">anos de oficina</dt>
-                <dd className="order-first text-2xl font-semibold sm:text-3xl">8</dd>
-              </div>
+            <dl className="mt-12 grid grid-cols-3 divide-x divide-line border-y border-line">
+              {stats.map((s) => (
+                <div key={s.label} className="flex flex-col px-3 py-8 text-center sm:px-6">
+                  <dt className="mt-2 text-xs text-muted sm:text-sm">{s.label}</dt>
+                  <dd className="order-first font-mono text-3xl font-medium sm:text-5xl">{s.value}</dd>
+                </div>
+              ))}
             </dl>
-            <ul className="mt-8 grid gap-4 md:grid-cols-3">
+            <ul className="mt-12 grid gap-6 md:grid-cols-3">
               {testimonials.map((t) => (
-                <li key={t.name} className="rounded-lg border border-line bg-surface p-5">
+                <li key={t.name} className="rounded-xl border border-line bg-surface p-7">
                   <figure>
-                    <blockquote className="text-sm leading-relaxed">“{t.quote}”</blockquote>
-                    <figcaption className="mt-3 text-xs text-muted">{t.name}</figcaption>
+                    <blockquote className="leading-relaxed">“{t.quote}”</blockquote>
+                    <figcaption className="mt-5 text-sm text-muted">{t.name}</figcaption>
                   </figure>
                 </li>
               ))}
@@ -165,45 +234,48 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="faq" aria-labelledby="faq-titulo" className="border-t border-line">
-          <div className="mx-auto max-w-5xl px-4 py-16">
-            <h2 id="faq-titulo" className="text-2xl font-semibold tracking-tight">
-              Dúvidas frequentes
-            </h2>
-            <div className="mt-6">
-              <Faq items={faq} />
+        <section id="faq" aria-labelledby="faq-titulo" className={section}>
+          <div className={`${container} grid gap-10 lg:grid-cols-[1fr_2fr]`}>
+            <div>
+              <p className={eyebrow}>Antes de pedir</p>
+              <h2 id="faq-titulo" className={`mt-3 ${h2}`}>
+                Dúvidas frequentes
+              </h2>
             </div>
+            <Faq items={faq} />
           </div>
         </section>
 
-        <section id="orcamento" aria-labelledby="orcamento-titulo" className="border-t border-line">
-          <div className="mx-auto grid max-w-5xl gap-10 px-4 py-16 lg:grid-cols-[1fr_2fr]">
+        <section id="orcamento" aria-labelledby="orcamento-titulo" className={section}>
+          <div className={`${container} grid gap-10 lg:grid-cols-[1fr_2fr]`}>
             <div>
-              <h2 id="orcamento-titulo" className="text-2xl font-semibold tracking-tight">
+              <p className={eyebrow}>Resposta em minutos</p>
+              <h2 id="orcamento-titulo" className={`mt-3 ${h2}`}>
                 Pedir orçamento
               </h2>
-              <p className="mt-3 text-sm text-muted">
-                Ao enviar, uma automação classifica o pedido com IA, salva no sistema, gera uma resposta personalizada
-                e avisa a equipe. Tudo em poucos segundos.
+              <p className="mt-6 text-muted">
+                Ao enviar, uma automação classifica o pedido com IA, salva no sistema, gera uma resposta personalizada e
+                avisa a equipe. Tudo em poucos segundos.
               </p>
-              <p className="mt-3 text-sm text-muted">Todos os campos são obrigatórios.</p>
+              <p className="mt-4 text-sm text-muted">Todos os campos são obrigatórios.</p>
             </div>
-            <LeadForm />
+            <div className="rounded-xl border border-line bg-surface p-6 sm:p-8">
+              <LeadForm />
+            </div>
           </div>
         </section>
       </main>
 
       <footer className="border-t border-line">
-        <div className="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-8 text-sm text-muted sm:flex-row sm:justify-between">
+        <div className={`${container} flex flex-col gap-3 py-10 text-sm text-muted sm:flex-row sm:justify-between`}>
           <p>Lume Estética Automotiva é uma empresa fictícia. Projeto de portfólio.</p>
-          <p>
-            <Link href="/demo/leads" className="underline underline-offset-2 hover:text-text">
+          <p className="flex gap-4">
+            <Link href="/demo/leads" className="underline underline-offset-4 hover:text-text">
               Painel de leads (demo)
             </Link>
-            {" · "}
             <a
               href="https://github.com/Joaopedro0s/captacao-inteligente"
-              className="underline underline-offset-2 hover:text-text"
+              className="underline underline-offset-4 hover:text-text"
             >
               Código no GitHub
             </a>

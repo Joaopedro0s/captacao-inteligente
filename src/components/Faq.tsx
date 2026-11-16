@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { IconChevron } from "./Icons";
 
 /** Acordeão acessível: título com botão real, aria-expanded e aria-controls apontando para o painel. */
 export function Faq({ items }: { items: { q: string; a: string }[] }) {
@@ -22,16 +23,14 @@ export function Faq({ items }: { items: { q: string; a: string }[] }) {
                 aria-expanded={expanded}
                 aria-controls={panelId}
                 onClick={() => setOpen(expanded ? null : i)}
-                className="flex w-full items-center justify-between gap-4 py-4 text-left font-medium"
+                className="flex w-full items-center justify-between gap-4 py-5 text-left text-lg font-medium hover:text-muted"
               >
                 {item.q}
-                <span aria-hidden="true" className={`shrink-0 text-muted transition-transform motion-reduce:transition-none ${expanded ? "rotate-45" : ""}`}>
-                  +
-                </span>
+                <IconChevron className={`size-5 shrink-0 text-muted transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
               </button>
             </h3>
-            <div id={panelId} role="region" aria-labelledby={buttonId} hidden={!expanded} className="pb-4">
-              <p className="text-sm text-muted">{item.a}</p>
+            <div id={panelId} role="region" aria-labelledby={buttonId} hidden={!expanded} className="pb-5">
+              <p className="max-w-2xl leading-relaxed text-muted">{item.a}</p>
             </div>
           </div>
         );
