@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Temperature {
+  QUENTE
+  MORNO
+  FRIO
+}
+
+enum LeadStatus {
+  COMPLETO
+  PARCIAL
+}
+
+model Lead {
+  id          String      @id @default(cuid())
+  createdAt   DateTime    @default(now())
+  name        String
+  phone       String
+  email       String
+  service     String
+  message     String
+  consentAt   DateTime
+  temperature Temperature
+  reason      String
+  reply       String?
+  status      LeadStatus  @default(PARCIAL)
+  /// Linha do tempo da automação: [{ key, label, status: "ok" | "erro" | "pulada", detail?, ms }]
+  steps       Json        @default("[]")
+
+  @@index([createdAt])
+}
+
+/// Uma linha por pedido aceito em /api/lead. Base do rate limit por IP e do limite diário global.
+model RequestLog {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  ipHash    String
+
+  @@index([ipHash, createdAt])
+  @@index([createdAt])
+}
