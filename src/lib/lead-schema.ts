@@ -12,19 +12,19 @@ export const SERVICES = [
 export const MESSAGE_MAX = 1000;
 
 export const leadSchema = z.object({
-  name: z.string().trim().min(2, "Informe seu nome.").max(80, "Use até 80 caracteres."),
+  name: z.string("Informe seu nome.").trim().min(2, "Informe seu nome.").max(80, "Use até 80 caracteres."),
   phone: z
-    .string()
+    .string("Campo obrigatório.")
     .trim()
     .regex(/^[\d\s()+.-]*$/, "Use apenas números, espaços, parênteses ou hífen.")
     .refine((v) => {
       const digits = v.replace(/\D/g, "").length;
       return digits >= 10 && digits <= 13;
     }, "Informe o telefone com DDD."),
-  email: z.string().trim().max(120, "E-mail longo demais.").pipe(z.email("E-mail inválido.")),
+  email: z.string("Informe seu e-mail.").trim().max(120, "E-mail longo demais.").pipe(z.email("E-mail inválido.")),
   service: z.enum(SERVICES, { error: "Escolha um serviço." }),
   message: z
-    .string()
+    .string("Campo obrigatório.")
     .trim()
     .min(10, "Conte um pouco mais (mínimo de 10 caracteres).")
     .max(MESSAGE_MAX, `Use até ${MESSAGE_MAX} caracteres.`),
