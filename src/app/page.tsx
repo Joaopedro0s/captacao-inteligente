@@ -112,7 +112,8 @@ const faq = [
 const container = "mx-auto w-full max-w-6xl px-4 sm:px-6";
 const section = "border-t border-line py-20 sm:py-28";
 const h2 = "font-display text-4xl uppercase leading-none tracking-wide sm:text-5xl";
-const eyebrow = "text-sm font-medium text-muted";
+// Branco do tema a 80% (#ccc, 13:1 sobre o fundo): mais claro que o texto secundário, sem cor nova.
+const eyebrow = "text-sm font-medium text-text/80";
 
 export default function Home() {
   return (

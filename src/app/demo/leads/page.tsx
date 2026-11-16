@@ -14,7 +14,7 @@ export default function LeadsPage() {
       <DemoBanner showPanelLink={false} />
       <SiteHeader links={[{ href: "/#orcamento", label: "Fazer um pedido pelo site", primary: true }]} />
       <main id="conteudo" tabIndex={-1} className="mx-auto w-full max-w-6xl flex-1 px-4 py-16 focus:outline-none sm:px-6 sm:py-20">
-        <p className="text-sm font-medium text-muted">Demonstração ao vivo</p>
+        <p className="text-sm font-medium text-text/80">Demonstração ao vivo</p>
         <h1 className="mt-3 font-display text-5xl uppercase leading-none tracking-wide sm:text-6xl">
           Painel da automação
         </h1>
