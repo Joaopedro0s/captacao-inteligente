@@ -10,6 +10,22 @@ export type Step = {
 
 export type Temperature = "QUENTE" | "MORNO" | "FRIO";
 
+/** Lead como o painel público recebe de GET /api/leads (contato já mascarado). */
+export type PanelLead = {
+  id: string;
+  createdAt: string;
+  name: string;
+  email: string;
+  phone: string;
+  service: string;
+  message: string;
+  temperature: Temperature;
+  reason: string;
+  reply: string | null;
+  status: "COMPLETO" | "PARCIAL";
+  steps: Step[];
+};
+
 /** Resposta de POST /api/lead. */
 export type LeadResponse =
   | {
