@@ -189,6 +189,11 @@ export function LeadsPanel() {
       {!leads && !loadError && <p className="mt-10 text-sm text-muted">Carregando leads…</p>}
 
       <h2 className="mt-16 font-display text-3xl uppercase leading-none tracking-wide sm:text-4xl">Leads recentes</h2>
+      <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted">
+        <span className="font-medium text-text">Completo:</span> todas as etapas concluíram.{" "}
+        <span className="font-medium text-text">Parcial:</span> uma etapa falhou e o fluxo continuou nas demais, de
+        propósito, para mostrar a tolerância a falhas.
+      </p>
       {leads?.length === 0 && (
         <p className="mt-6 text-sm text-muted">Nenhum lead ainda. Envie um lead de teste para ver a automação.</p>
       )}
