@@ -15,13 +15,14 @@ const steps = (ms: number[], emailClienteFalhou = false): Step[] => [
   { key: "email_equipe", label: "Aviso à equipe", status: "ok", ms: ms[5] },
 ];
 
-const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000);
+// Horários relativos ao momento do seed ou do reset, do mais recente ao mais antigo.
+const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000);
 
 export function seedLeads(): Prisma.LeadCreateManyInput[] {
   return [
     {
-      createdAt: hoursAgo(2),
-      consentAt: hoursAgo(2),
+      createdAt: minutesAgo(20),
+      consentAt: minutesAgo(20),
       name: "Marina Toledo",
       phone: "(11) 90000-0101",
       email: "marina.toledo@example.com",
@@ -36,8 +37,8 @@ export function seedLeads(): Prisma.LeadCreateManyInput[] {
       steps: steps([12, 840, 35, 910, 410, 380]),
     },
     {
-      createdAt: hoursAgo(5),
-      consentAt: hoursAgo(5),
+      createdAt: minutesAgo(60),
+      consentAt: minutesAgo(60),
       name: "Rafael Nunes",
       phone: "(11) 90000-0102",
       email: "rafael.nunes@example.com",
@@ -52,8 +53,8 @@ export function seedLeads(): Prisma.LeadCreateManyInput[] {
       steps: steps([10, 790, 31, 880, 390, 402]),
     },
     {
-      createdAt: hoursAgo(9),
-      consentAt: hoursAgo(9),
+      createdAt: minutesAgo(180),
+      consentAt: minutesAgo(180),
       name: "Beatriz Campos",
       phone: "(21) 90000-0103",
       email: "beatriz.campos@example.com",
@@ -67,8 +68,8 @@ export function seedLeads(): Prisma.LeadCreateManyInput[] {
       steps: steps([9, 710, 29, 760, 375, 366]),
     },
     {
-      createdAt: hoursAgo(20),
-      consentAt: hoursAgo(20),
+      createdAt: minutesAgo(300),
+      consentAt: minutesAgo(300),
       name: "Diego Ferraz",
       phone: "(31) 90000-0104",
       email: "diego.ferraz@example.com",

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LeadInput } from "@/lib/lead-schema";
+import { relativeTime } from "@/lib/relative-time";
 import type { LeadResponse, PanelLead, PanelPage } from "@/lib/types";
 import { StatusBadge, TemperatureBadge } from "./Badges";
 import { StepList } from "./StepList";
@@ -243,8 +244,12 @@ function LeadCard({ lead }: { lead: PanelLead }) {
         </h3>
         <TemperatureBadge value={lead.temperature} />
         <StatusBadge value={lead.status} />
-        <time dateTime={lead.createdAt} className="font-mono text-xs text-muted sm:ml-auto">
-          {dateFormat.format(new Date(lead.createdAt))}
+        <time
+          dateTime={lead.createdAt}
+          title={dateFormat.format(new Date(lead.createdAt))}
+          className="font-mono text-xs text-muted sm:ml-auto"
+        >
+          {relativeTime(new Date(lead.createdAt))}
         </time>
         <p className="basis-full break-words text-sm text-muted">
           {lead.service} · <span className="whitespace-nowrap font-mono text-xs">{lead.email}</span> ·{" "}
