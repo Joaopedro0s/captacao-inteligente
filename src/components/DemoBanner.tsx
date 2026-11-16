@@ -6,7 +6,10 @@ export function DemoBanner({ showPanelLink = true }: { showPanelLink?: boolean }
       <strong className="font-medium text-text">Demonstração de portfólio.</strong> Empresa, clientes e depoimentos
       são fictícios. Não use dados reais.{" "}
       {showPanelLink && (
-        <Link href="/demo/leads" className="text-accent underline underline-offset-4 hover:text-accent-hover">
+        <Link
+          href="/demo/leads"
+          className="inline-flex min-h-11 items-center text-accent underline underline-offset-4 hover:text-accent-hover"
+        >
           Abrir o painel da automação
         </Link>
       )}

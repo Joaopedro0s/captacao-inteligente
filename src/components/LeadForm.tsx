@@ -175,15 +175,18 @@ export function LeadForm() {
         </div>
 
         <div>
-          <div className="flex gap-3">
-            <input
-              id="consent"
-              name="consent"
-              type="checkbox"
-              className="mt-0.5 size-5 shrink-0 accent-accent"
-              aria-invalid={!!err("consent")}
-              aria-describedby={describedBy("consent")}
-            />
+          <div className="flex gap-1">
+            {/* Área de toque de 44px ao redor da caixa de 20px; o texto ao lado também marca a caixa. */}
+            <label htmlFor="consent" className="-mt-3 -ml-3 grid size-11 shrink-0 cursor-pointer place-items-center">
+              <input
+                id="consent"
+                name="consent"
+                type="checkbox"
+                className="size-5 accent-accent"
+                aria-invalid={!!err("consent")}
+                aria-describedby={describedBy("consent")}
+              />
+            </label>
             <label htmlFor="consent" className="text-sm text-muted">
               Concordo com o uso dos meus dados para receber este orçamento, conforme a LGPD. A mensagem é
               analisada pelo Google Gemini, no plano gratuito, em que o Google pode usar o conteúdo para melhorar

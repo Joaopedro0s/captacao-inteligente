@@ -276,13 +276,13 @@ export default function Home() {
       <footer className="border-t border-line">
         <div className={`${container} flex flex-col gap-3 py-10 text-sm text-muted sm:flex-row sm:justify-between`}>
           <p>Lume Estética Automotiva é uma empresa fictícia. Projeto de portfólio.</p>
-          <p className="flex gap-4">
-            <Link href="/demo/leads" className="underline underline-offset-4 hover:text-text">
+          <p className="flex flex-wrap gap-x-4">
+            <Link href="/demo/leads" className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-text">
               Painel de leads (demo)
             </Link>
             <a
               href="https://github.com/Joaopedro0s/captacao-inteligente"
-              className="underline underline-offset-4 hover:text-text"
+              className="inline-flex min-h-11 items-center underline underline-offset-4 hover:text-text"
             >
               Código no GitHub
             </a>
