@@ -7,6 +7,7 @@ export const SERVICES = [
   "Vitrificação de pintura",
   "Higienização interna",
   "Película de proteção (PPF)",
+  "Revitalização de faróis",
 ] as const;
 
 export const MESSAGE_MAX = 1000;

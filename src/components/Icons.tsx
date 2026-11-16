@@ -83,6 +83,13 @@ export const IconLayers = (p: IconProps) => (
   </Svg>
 );
 
+export const IconHeadlight = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M11 6H9a6 6 0 0 0 0 12h2V6Z" />
+    <path d="M15 8h6M15 12h6M15 16h6" />
+  </Svg>
+);
+
 export const IconCheck = (p: IconProps) => (
   <Svg {...p}>
     <path d="m5 12 4.5 4.5L19 7" />

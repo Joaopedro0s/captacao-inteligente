@@ -7,6 +7,7 @@ import {
   IconDatabase,
   IconDroplet,
   IconForm,
+  IconHeadlight,
   IconLayers,
   IconPolish,
   IconSeat,
@@ -41,6 +42,11 @@ const services = [
     name: "Película de proteção (PPF)",
     icon: IconLayers,
     text: "Filme transparente contra pedras e riscos nas áreas mais expostas: capô, para-choque e retrovisores.",
+  },
+  {
+    name: "Revitalização de faróis",
+    icon: IconHeadlight,
+    text: "Remoção do amarelamento e da opacidade das lentes, com selagem de proteção contra raios UV.",
   },
 ];
 
