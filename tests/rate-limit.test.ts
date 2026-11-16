@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { maskEmail, maskPhone } from "@/lib/mask";
+import { maskEmail, maskName, maskPhone, truncateMessage } from "@/lib/mask";
 import { clientIp, evaluateLimits, hashIp, startOfUtcDay } from "@/lib/rate-limit";
 
 const limits = { perHour: 5, perDay: 50 };
@@ -48,5 +48,22 @@ describe("máscaras do painel público", () => {
   it("mascara e-mail e telefone", () => {
     expect(maskEmail("marina.toledo@gmail.com.br")).toBe("m***@g***.com.br");
     expect(maskPhone("(11) 98765-4321")).toBe("(**) *****-**21");
+  });
+
+  it.each([
+    ["joao pedro fonseca alves de carvalho", "Joao C."],
+    ["  Marina   Toledo ", "Marina T."],
+    ["ÁLVARO ÉVORA", "Álvaro É."],
+    ["Cher", "Cher"],
+    ["   ", "Anônimo"],
+  ])("mostra só primeiro nome e inicial: %s", (name, expected) => {
+    expect(maskName(name)).toBe(expected);
+  });
+
+  it("limita a mensagem a 200 caracteres", () => {
+    expect(truncateMessage("curta")).toBe("curta");
+    const long = truncateMessage("é".repeat(250));
+    expect(Array.from(long)).toHaveLength(201);
+    expect(long.endsWith("…")).toBe(true);
   });
 });

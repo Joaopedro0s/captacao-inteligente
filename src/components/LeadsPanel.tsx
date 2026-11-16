@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LeadInput } from "@/lib/lead-schema";
-import type { LeadResponse, PanelLead } from "@/lib/types";
+import type { LeadResponse, PanelPage } from "@/lib/types";
 import { StatusBadge, TemperatureBadge } from "./Badges";
 import { StepList } from "./StepList";
 
@@ -48,7 +48,9 @@ const dateFormat = new Intl.DateTimeFormat("pt-BR", {
 });
 
 export function LeadsPanel() {
-  const [leads, setLeads] = useState<PanelLead[] | null>(null);
+  const [data, setData] = useState<PanelPage | null>(null);
+  const [page, setPage] = useState(1);
+  const pageRef = useRef(1);
   const [loadError, setLoadError] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [sending, setSending] = useState(false);
@@ -57,9 +59,11 @@ export function LeadsPanel() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/leads", { cache: "no-store" });
+      const res = await fetch(`/api/leads?page=${pageRef.current}`, { cache: "no-store" });
       if (!res.ok) throw new Error(String(res.status));
-      setLeads((await res.json()) as PanelLead[]);
+      const body = (await res.json()) as PanelPage;
+      setData(body);
+      if (body.page !== pageRef.current) setPage((pageRef.current = body.page));
       setLoadError(false);
       setUpdatedAt(new Date());
     } catch {
@@ -96,7 +100,7 @@ export function LeadsPanel() {
           kind: "ok",
           text: `Lead de teste (perfil ${profile}) processado: ${body.status === "COMPLETO" ? "completo" : "parcial"}.`,
         });
-        await load();
+        goTo(1);
       } else {
         setNotice({ kind: "error", text: body && !body.ok ? body.error : "Falha ao enviar o lead de teste." });
       }
@@ -107,7 +111,13 @@ export function LeadsPanel() {
     }
   }
 
-  const count = (pred: (l: PanelLead) => boolean) => leads?.filter(pred).length ?? 0;
+  function goTo(target: number) {
+    pageRef.current = target;
+    setPage(target);
+    load();
+  }
+
+  const leads = data?.leads ?? null;
 
   return (
     <div>
@@ -142,14 +152,14 @@ export function LeadsPanel() {
         )}
       </div>
 
-      {leads && (
+      {data && (
         <dl className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-5">
           {[
-            ["Leads", leads.length],
-            ["Quentes", count((l) => l.temperature === "QUENTE")],
-            ["Mornos", count((l) => l.temperature === "MORNO")],
-            ["Frios", count((l) => l.temperature === "FRIO")],
-            ["Parciais", count((l) => l.status === "PARCIAL")],
+            ["Leads", data.counts.total],
+            ["Quentes", data.counts.QUENTE],
+            ["Mornos", data.counts.MORNO],
+            ["Frios", data.counts.FRIO],
+            ["Parciais", data.counts.PARCIAL],
           ].map(([label, value]) => (
             <div key={label} className="flex flex-col rounded-lg border border-line bg-surface p-3">
               <dt className="text-xs text-muted">{label}</dt>
@@ -213,6 +223,30 @@ export function LeadsPanel() {
           </li>
         ))}
       </ol>
+
+      {data && data.totalPages > 1 && (
+        <nav aria-label="Páginas de leads" className="mt-6 flex items-center justify-between gap-4 text-sm">
+          <button
+            type="button"
+            onClick={() => goTo(page - 1)}
+            disabled={page <= 1}
+            className="rounded-md border border-line px-3 py-2 disabled:opacity-40"
+          >
+            Mais recentes
+          </button>
+          <span aria-live="polite">
+            Página {page} de {data.totalPages}
+          </span>
+          <button
+            type="button"
+            onClick={() => goTo(page + 1)}
+            disabled={page >= data.totalPages}
+            className="rounded-md border border-line px-3 py-2 disabled:opacity-40"
+          >
+            Mais antigos
+          </button>
+        </nav>
+      )}
     </div>
   );
 }

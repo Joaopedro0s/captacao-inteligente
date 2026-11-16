@@ -26,6 +26,14 @@ export type PanelLead = {
   steps: Step[];
 };
 
+/** Resposta de GET /api/leads?page=N. */
+export type PanelPage = {
+  page: number;
+  totalPages: number;
+  counts: { total: number; QUENTE: number; MORNO: number; FRIO: number; PARCIAL: number };
+  leads: PanelLead[];
+};
+
 /** Resposta de POST /api/lead. */
 export type LeadResponse =
   | {
