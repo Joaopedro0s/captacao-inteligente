@@ -73,10 +73,10 @@ export async function processLead(input: LeadInput, validationStep: Step) {
   }
 
   // 4. Resposta personalizada (com texto padrão se a IA falhar)
-  let reply = fallbackReply(input.name);
+  let reply = fallbackReply(input.name, classification.temperature);
   t = performance.now();
   try {
-    const generated = await generateReply(input);
+    const generated = await generateReply(input, classification.temperature);
     reply = generated.text;
     steps.push({
       key: "resposta",

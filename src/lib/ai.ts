@@ -102,7 +102,10 @@ Critérios:
 - morno: interesse real, mas ainda pesquisando, comparando ou com dúvidas antes de decidir.
 - frio: pergunta genérica, sem intenção clara, teste ou mensagem fora do assunto.
 
-Responda só com JSON: {"temperatura": "quente" | "morno" | "frio", "justificativa": "<uma frase curta em português, até 200 caracteres>"}.`;
+A justificativa é uma frase curta (até 200 caracteres) em português do Brasil, com acentuação e ortografia
+corretas (ex.: "Cliente já definiu o serviço e pede horário para esta semana."). Não copie trechos da mensagem.
+
+Responda só com JSON: {"temperatura": "quente" | "morno" | "frio", "justificativa": "<frase>"}.`;
 
 // Sem a chave "$schema": a API do Gemini aceita só um subconjunto de JSON Schema.
 const classificationJsonSchema: Record<string, unknown> = z.toJSONSchema(classificationSchema);
@@ -146,25 +149,46 @@ const REPLY_SYSTEM = `Você escreve a primeira resposta por e-mail da Lume Esté
 ${DATA_RULE}
 
 Regras:
-- Português do Brasil, tom cordial e profissional, no máximo 90 palavras, texto simples sem markdown.
-- Cumprimente pelo primeiro nome, mostre que entendeu o pedido e diga que a equipe vai entrar em contato para combinar uma avaliação.
+- Português do Brasil, com acentuação e ortografia corretas; tom profissional e sóbrio; no máximo 90 palavras; texto simples, sem markdown.
+- Cumprimente pelo primeiro nome com "Olá, <nome>." e mostre que entendeu o pedido, sem repetir a mensagem.
+- Sem entusiasmo exagerado: não use "ficamos muito felizes", "adoraríamos", "que ótimo" nem mais de um ponto de exclamação.
 - Nunca cite preços, valores, descontos, prazos, datas, horários ou garantias. Não prometa nada.
 - Termine com "Equipe Lume".`;
 
-export const fallbackReply = (name: string) =>
-  `Olá, ${name.split(" ")[0]}! Recebemos seu pedido de orçamento e obrigado pelo contato. ` +
-  "Nossa equipe vai analisar e falar com você em breve para combinar uma avaliação. Equipe Lume.";
+// O tom depende da classificação, que é dado nosso (não vem do cliente); por isso vai no system prompt.
+const REPLY_TONE: Record<Temperature, string> = {
+  QUENTE:
+    "O pedido tem intenção clara. Seja objetivo: diga que a equipe vai entrar em contato para combinar a avaliação do carro.",
+  MORNO:
+    "O cliente ainda está avaliando. Responda de forma geral, sem inventar detalhes técnicos, e convide para uma avaliação sem pressão.",
+  FRIO:
+    "O pedido não mostra intenção clara. Seja neutro e breve, não presuma interesse de compra e peça mais detalhes: modelo do carro, estado atual e o que a pessoa gostaria de melhorar.",
+};
+
+export function fallbackReply(name: string, temperature: Temperature = "MORNO") {
+  const first = name.trim().split(/\s+/)[0] || "cliente";
+  return temperature === "FRIO"
+    ? `Olá, ${first}. Recebemos sua mensagem. Para indicarmos o serviço adequado, conte um pouco mais: modelo do carro, estado atual e o que você gostaria de melhorar. Equipe Lume.`
+    : `Olá, ${first}. Recebemos seu pedido de orçamento, obrigado pelo contato. Nossa equipe vai analisar e falar com você em breve para combinar uma avaliação. Equipe Lume.`;
+}
 
 // Rede de segurança além do prompt: se a resposta citar preço ou prazo, usa o texto padrão.
 const PRICE_OR_DEADLINE = /R\$|\breais\b|\d+\s*(dias?|horas?|semanas?|min(utos)?|%)|\bdesconto/i;
 
-export function sanitizeReply(text: string, name: string): { text: string; replaced: boolean } {
+export function sanitizeReply(
+  text: string,
+  name: string,
+  temperature: Temperature = "MORNO",
+): { text: string; replaced: boolean } {
   const clean = text.replace(/\s+\n/g, "\n").trim().slice(0, 1200);
-  if (clean.length < 20 || PRICE_OR_DEADLINE.test(clean)) return { text: fallbackReply(name), replaced: true };
+  if (clean.length < 20 || PRICE_OR_DEADLINE.test(clean)) {
+    return { text: fallbackReply(name, temperature), replaced: true };
+  }
   return { text: clean, replaced: false };
 }
 
-export async function generateReply(input: LeadInput) {
-  const text = await complete({ system: REPLY_SYSTEM, user: leadAsData(input), maxTokens: 500 });
-  return sanitizeReply(text, input.name);
+export async function generateReply(input: LeadInput, temperature: Temperature) {
+  const system = `${REPLY_SYSTEM}\n\nTom para este pedido: ${REPLY_TONE[temperature]}`;
+  const text = await complete({ system, user: leadAsData(input), maxTokens: 500 });
+  return sanitizeReply(text, input.name, temperature);
 }
