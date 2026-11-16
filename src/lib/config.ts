@@ -4,7 +4,7 @@ const positiveInt = (value: string | undefined, fallback: number) => {
 };
 
 export const config = {
-  aiModel: process.env.AI_MODEL || "claude-haiku-5-5",
+  aiModel: process.env.AI_MODEL || "gemini-3.5-flash-lite",
   aiTimeoutMs: positiveInt(process.env.AI_TIMEOUT_MS, 8000),
   emailFrom: process.env.EMAIL_FROM || "Lume Estética Automotiva <onboarding@resend.dev>",
   emailTimeoutMs: 8000,

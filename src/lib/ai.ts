@@ -1,6 +1,5 @@
-// Único módulo que conhece o provedor de IA. Para trocar (ex.: OpenAI), reescreva `complete`
-// e `isRetryable`; prompts, parser e fallback continuam iguais.
-import Anthropic from "@anthropic-ai/sdk";
+// Único módulo que conhece o provedor de IA (Google Gemini, via REST). Para trocar de provedor,
+// reescreva `complete` e `RetryableError`; prompts, parser e fallback continuam iguais.
 import { z } from "zod";
 import { config } from "./config";
 import type { LeadInput } from "./lead-schema";
@@ -9,41 +8,59 @@ import type { Temperature } from "./types";
 
 // ---------- Provedor ----------
 
-let client: Anthropic | null = null;
+class RetryableError extends Error {}
 
-function getClient() {
-  if (!process.env.ANTHROPIC_API_KEY) throw new NonRetryableError("ANTHROPIC_API_KEY não configurada");
-  // Sem retries do SDK: o backoff é nosso (withRetry), com timeout curto por chamada.
-  client ??= new Anthropic({ timeout: config.aiTimeoutMs, maxRetries: 0 });
-  return client;
-}
+type GeminiResponse = {
+  candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] }; finishReason?: string }[];
+  promptFeedback?: { blockReason?: string };
+  error?: { message?: string };
+};
 
-function isRetryable(err: unknown) {
-  if (err instanceof Anthropic.APIConnectionError) return true; // inclui timeout
-  if (err instanceof Anthropic.APIError) return err.status === 429 || (err.status ?? 0) >= 500;
-  return false;
+async function callGemini(body: object): Promise<GeminiResponse> {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new NonRetryableError("GEMINI_API_KEY não configurada");
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(config.aiModel)}:generateContent`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(config.aiTimeoutMs),
+      },
+    );
+  } catch (err) {
+    // Timeout ou falha de rede: vale tentar de novo.
+    throw new RetryableError(`Gemini: ${err instanceof Error ? err.message : "falha de rede"}`);
+  }
+  const data = (await res.json().catch(() => ({}))) as GeminiResponse;
+  if (res.ok) return data;
+  const message = `Gemini ${res.status}: ${data.error?.message ?? res.statusText}`;
+  throw res.status === 429 || res.status >= 500 ? new RetryableError(message) : new NonRetryableError(message);
 }
 
 async function complete(opts: { system: string; user: string; maxTokens: number; jsonSchema?: Record<string, unknown> }) {
-  const response = await withRetry(
+  const data = await withRetry(
     () =>
-      getClient().messages.create({
-        model: config.aiModel,
-        max_tokens: opts.maxTokens,
-        // Tarefa curta: sem raciocínio estendido, para custo e latência mínimos.
-        thinking: { type: "disabled" },
-        system: opts.system,
-        messages: [{ role: "user", content: opts.user }],
-        ...(opts.jsonSchema && {
-          output_config: { format: { type: "json_schema", schema: opts.jsonSchema } },
-        }),
+      callGemini({
+        systemInstruction: { parts: [{ text: opts.system }] },
+        contents: [{ role: "user", parts: [{ text: opts.user }] }],
+        generationConfig: {
+          maxOutputTokens: opts.maxTokens,
+          // Tarefa curta: raciocínio no mínimo, para custo e latência baixos.
+          thinkingConfig: { thinkingLevel: "minimal" },
+          ...(opts.jsonSchema && { responseMimeType: "application/json", responseJsonSchema: opts.jsonSchema }),
+        },
       }),
-    { shouldRetry: isRetryable },
+    { shouldRetry: (err) => err instanceof RetryableError },
   );
-  if (response.stop_reason === "refusal") throw new NonRetryableError("a IA recusou o pedido");
-  return response.content
-    .filter((b) => b.type === "text")
-    .map((b) => b.text)
+  if (data.promptFeedback?.blockReason) {
+    throw new NonRetryableError(`a IA bloqueou o pedido (${data.promptFeedback.blockReason})`);
+  }
+  return (data.candidates?.[0]?.content?.parts ?? [])
+    .filter((p) => !p.thought)
+    .map((p) => p.text ?? "")
     .join("")
     .trim();
 }
@@ -87,7 +104,9 @@ Critérios:
 
 Responda só com JSON: {"temperatura": "quente" | "morno" | "frio", "justificativa": "<uma frase curta em português, até 200 caracteres>"}.`;
 
-const classificationJsonSchema = z.toJSONSchema(classificationSchema);
+// Sem a chave "$schema": a API do Gemini aceita só um subconjunto de JSON Schema.
+const classificationJsonSchema: Record<string, unknown> = z.toJSONSchema(classificationSchema);
+delete classificationJsonSchema.$schema;
 
 /** Extrai e valida a classificação. Aceita JSON puro ou cercado de texto/cercas de código. Nunca lança. */
 export function parseClassification(text: string): Classification | null {
@@ -112,7 +131,7 @@ export async function classifyLead(input: LeadInput): Promise<Classification | n
     const text = await complete({
       system: CLASSIFY_SYSTEM,
       user: leadAsData(input),
-      maxTokens: 200,
+      maxTokens: 300, // o limite inclui tokens de raciocínio
       jsonSchema: classificationJsonSchema,
     });
     const result = parseClassification(text);
@@ -146,6 +165,6 @@ export function sanitizeReply(text: string, name: string): { text: string; repla
 }
 
 export async function generateReply(input: LeadInput) {
-  const text = await complete({ system: REPLY_SYSTEM, user: leadAsData(input), maxTokens: 350 });
+  const text = await complete({ system: REPLY_SYSTEM, user: leadAsData(input), maxTokens: 500 });
   return sanitizeReply(text, input.name);
 }

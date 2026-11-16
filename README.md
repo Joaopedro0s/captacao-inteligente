@@ -26,7 +26,7 @@ flowchart LR
     V[Visitante] -->|formulário| L["Landing (Next.js)"]
     L -->|POST /api/lead| F["Função serverless<br/>(Vercel)"]
     F -->|rate limit, leads| DB[("PostgreSQL<br/>Neon")]
-    F -->|classificação e resposta| AI["Claude Haiku<br/>(Anthropic)"]
+    F -->|classificação e resposta| AI["Gemini Flash-Lite<br/>(Google)"]
     F -->|e-mails| R[Resend]
     P["Painel /demo/leads"] -->|GET /api/leads a cada 5s| F
 ```
@@ -40,7 +40,7 @@ sequenceDiagram
     participant C as Cliente
     participant API as /api/lead
     participant DB as Postgres
-    participant IA as Claude
+    participant IA as Gemini
     participant E as Resend
     C->>API: pedido (nome, telefone, e-mail, serviço, mensagem, consentimento)
     API->>API: 1. tamanho, honeypot e schema zod
@@ -58,7 +58,7 @@ sequenceDiagram
 ```
 
 1. **Validação e limites.** O corpo é limitado a 8 KB, o honeypot descarta bots em silêncio, e o mesmo schema zod do formulário valida os campos. Depois, o rate limit por IP (5 por hora) e a cota diária global são checados no Postgres, compartilhado por todas as funções serverless. Se o banco não responder, a IA não é chamada.
-2. **Classificação por IA.** O Claude devolve `{ "temperatura", "justificativa" }` em JSON estruturado, que é validado de novo com zod. Se vier inválido, há uma nova tentativa; se falhar de novo, o lead entra como **morno** com o motivo "classificação indisponível".
+2. **Classificação por IA.** O Gemini devolve `{ "temperatura", "justificativa" }` em JSON estruturado, que é validado de novo com zod. Se vier inválido, há uma nova tentativa; se falhar de novo, o lead entra como **morno** com o motivo "classificação indisponível".
 3. **Gravação.** O lead é salvo com a classificação e a linha do tempo das etapas até ali.
 4. **Resposta personalizada.** Texto curto e cordial. Se a IA falhar ou citar preço, prazo ou desconto, entra uma resposta padrão segura.
 5. **E-mails.** A resposta vai ao cliente e um resumo vai à equipe, em paralelo. No modo demo, os dois vão só para `DEMO_RECIPIENT`.
@@ -82,18 +82,18 @@ Uma falha nunca derruba as etapas seguintes. Cada uma registra status, detalhe e
 
 **Como evitei abuso de custo.**
 
-- Modelo barato (Claude Haiku 5.5), sem raciocínio estendido, `max_tokens` de 200 (classificação) e 350 (resposta), timeout de 8 s por chamada e no máximo 3 chamadas à IA por lead no pior caso.
+- Modelo gratuito e rápido (Gemini 3.5 Flash-Lite, plano free do Google AI Studio), raciocínio no mínimo, limite de 300 tokens (classificação) e 500 (resposta), timeout de 8 s por chamada e no máximo 3 chamadas à IA por lead no pior caso.
 - Rate limit por IP (`RATE_LIMIT_PER_HOUR`) e cota diária global (`DAILY_LEAD_LIMIT`): ao atingir, o app responde com mensagem amigável e **não** chama a IA.
 - O IP nunca é salvo puro, só como hash SHA-256 com salt (`IP_HASH_SALT`).
 - Honeypot e limite de tamanho barram spam antes de qualquer custo.
 
-**Privacidade.** O painel é público, então e-mail e telefone saem sempre mascarados pela API (`m***@e***.com`, `(**) *****-**21`). No modo demo, nenhum e-mail é enviado ao endereço digitado no formulário. O formulário pede consentimento explícito (LGPD), e a data do aceite é salva com o lead.
+**Privacidade.** O painel é público, então e-mail e telefone saem sempre mascarados pela API (`m***@e***.com`, `(**) *****-**21`). No modo demo, nenhum e-mail é enviado ao endereço digitado no formulário. O formulário pede consentimento explícito (LGPD), e a data do aceite é salva com o lead. No plano gratuito do Gemini, o Google pode usar o conteúdo enviado para melhorar seus produtos; por isso a demo avisa para não usar dados reais. Em produção, use o plano pago, que não tem esse uso.
 
-**Provedor de IA isolado.** Só `src/lib/ai.ts` conhece a Anthropic. Para trocar de provedor, basta reescrever as funções `complete` e `isRetryable`; os prompts, o parser e o fallback continuam os mesmos.
+**Provedor de IA isolado.** Só `src/lib/ai.ts` conhece o Gemini, chamado direto pela API REST, sem SDK. O projeto começou com a Anthropic e foi trocado para o Gemini por causa do plano gratuito: a troca mexeu só nesse arquivo. Para trocar de novo, basta reescrever as funções `callGemini` e `complete`; os prompts, o parser e o fallback continuam os mesmos.
 
 ## Stack
 
-Next.js 16 (App Router) · TypeScript · Tailwind CSS 4 · Prisma 7 + PostgreSQL (Neon) · zod 4 · Claude Haiku 5.5 (Anthropic SDK) · Resend · Vitest · Vercel
+Next.js 16 (App Router) · TypeScript · Tailwind CSS 4 · Prisma 7 + PostgreSQL (Neon) · zod 4 · Google Gemini 3.5 Flash-Lite (REST) · Resend · Vitest · Vercel
 
 ## Como rodar localmente
 
@@ -120,7 +120,7 @@ npm run db:seed
 npm run dev
 ```
 
-Abra http://localhost:3000. Sem `ANTHROPIC_API_KEY` e `RESEND_API_KEY` o app funciona: a classificação cai no fallback, a resposta usa o texto padrão e o painel mostra essas etapas como erro ou pulada. É uma boa forma de ver a resiliência do fluxo.
+Abra http://localhost:3000. Sem `GEMINI_API_KEY` e `RESEND_API_KEY` o app funciona: a classificação cai no fallback, a resposta usa o texto padrão e o painel mostra essas etapas como erro ou pulada. É uma boa forma de ver a resiliência do fluxo.
 
 ```bash
 npm test
@@ -135,8 +135,8 @@ Todas estão documentadas em [`.env.example`](.env.example).
 | --- | --- | --- |
 | `DATABASE_URL` | sim | Conexão pooled do Neon, usada pelo app |
 | `DATABASE_URL_UNPOOLED` | sim | Conexão direta, usada pelo `prisma migrate deploy` |
-| `ANTHROPIC_API_KEY` | para a IA | Chave da API da Anthropic |
-| `AI_MODEL` | não | Padrão `claude-haiku-5-5` |
+| `GEMINI_API_KEY` | para a IA | Chave gratuita do Google AI Studio |
+| `AI_MODEL` | não | Padrão `gemini-3.5-flash-lite` |
 | `AI_TIMEOUT_MS` | não | Timeout por chamada à IA (padrão 8000) |
 | `RESEND_API_KEY` | para e-mails | Chave do Resend |
 | `EMAIL_FROM` | não | Remetente (padrão: sandbox `onboarding@resend.dev`) |
@@ -152,7 +152,7 @@ Todas estão documentadas em [`.env.example`](.env.example).
 
 1. Importe o repositório na Vercel (**Add New → Project**). O framework é detectado como Next.js.
 2. Em **Storage → Create Database → Neon**, conecte um banco ao projeto. A integração cria `DATABASE_URL` e `DATABASE_URL_UNPOOLED`.
-3. Em **Settings → Environment Variables**, adicione `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `DEMO_RECIPIENT`, `IP_HASH_SALT` e `RESET_TOKEN` (e ajuste os limites, se quiser).
+3. Em **Settings → Environment Variables**, adicione `GEMINI_API_KEY`, `RESEND_API_KEY`, `DEMO_RECIPIENT`, `IP_HASH_SALT` e `RESET_TOKEN` (e ajuste os limites, se quiser).
 4. Faça o deploy. A Vercel roda o script `vercel-build`:
 
    ```bash
@@ -175,7 +175,7 @@ Para importar:
 
 1. No n8n, vá em **Workflows → Import from File** e escolha `n8n/workflow.json`.
 2. Crie as credenciais:
-   - **Anthropic**: tipo *Header Auth*, nome `x-api-key`, valor = sua chave da Anthropic.
+   - **Gemini**: tipo *Header Auth*, nome `x-goog-api-key`, valor = sua chave do Google AI Studio.
    - **Resend**: tipo *Header Auth*, nome `Authorization`, valor = `Bearer SUA_CHAVE_RESEND`.
    - **Google Sheets**: OAuth2 do Google.
 3. No nó **Salvar no Google Sheets**, troque `COLE_AQUI_O_ID_DA_PLANILHA` pelo ID da planilha. A aba `Leads` precisa ter as colunas `recebido_em, nome, telefone, email, servico, mensagem, temperatura, justificativa, resposta`.

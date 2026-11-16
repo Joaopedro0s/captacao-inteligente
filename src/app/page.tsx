@@ -59,7 +59,7 @@ const faq = [
   },
   {
     q: "O que acontece com meus dados?",
-    a: "Usamos seus dados apenas para responder ao orçamento. Nesta demonstração, nenhum e-mail é enviado ao endereço informado.",
+    a: "Usamos seus dados apenas para responder ao orçamento. Nesta demonstração, a mensagem é analisada pelo Google Gemini (plano gratuito, que pode usar o conteúdo para melhorar produtos) e nenhum e-mail é enviado ao endereço informado. Por isso, não use dados reais.",
   },
 ];
 
