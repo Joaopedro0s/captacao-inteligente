@@ -1,4 +1,4 @@
-import type { Temperature } from "@/lib/types";
+import type { LeadStatus, Temperature } from "@/lib/types";
 
 // Rótulo em texto sempre presente: a cor reforça, não carrega sozinha a informação.
 const TEMPERATURE = {
@@ -14,7 +14,16 @@ export function TemperatureBadge({ value }: { value: Temperature }) {
   return <span className={`${base} ${t.className}`}>{t.label}</span>;
 }
 
-export function StatusBadge({ value }: { value: "COMPLETO" | "PARCIAL" }) {
+export function StatusBadge({ value }: { value: LeadStatus }) {
+  if (value === "PROCESSANDO") {
+    return (
+      <span className={`${base} gap-1.5 border-line-strong text-text`}>
+        {/* Indicador sutil; parado com prefers-reduced-motion. */}
+        <span aria-hidden="true" className="size-1.5 rounded-full bg-muted motion-safe:animate-pulse" />
+        Processando
+      </span>
+    );
+  }
   return value === "COMPLETO" ? (
     <span className={`${base} border-line-strong text-muted`}>Completo</span>
   ) : (

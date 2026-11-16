@@ -4,6 +4,7 @@ import { config } from "./config";
 import { prisma } from "./db";
 import { resolveRecipient, sendEmail } from "./email";
 import type { LeadInput } from "./lead-schema";
+import { leadStatus } from "./lead-status";
 import { maskEmail } from "./mask";
 import { STEP_MESSAGES } from "./step-messages";
 import type { Step } from "./types";
@@ -11,9 +12,13 @@ import type { Step } from "./types";
 const elapsed = (start: number) => Math.round(performance.now() - start);
 const asJson = (steps: Step[]) => steps as unknown as Prisma.InputJsonValue;
 
+/** Etapa que ainda não terminou: o painel mostra "aguardando" ou "executando" enquanto o lead está em PROCESSANDO. */
+const waiting = (key: Step["key"], label: string, status: "pendente" | "executando"): Step => ({ key, label, status, ms: 0 });
+
 /**
  * Etapas 2–5 da automação. Cada etapa registra status, detalhe e duração; nenhuma falha
- * interrompe as seguintes, e o lead termina como COMPLETO ou PARCIAL.
+ * interrompe as seguintes. O lead é gravado como PROCESSANDO, com as etapas restantes
+ * "aguardando", e termina como COMPLETO ou PARCIAL (regra em lead-status.ts).
  */
 export async function processLead(input: LeadInput, validationStep: Step) {
   const steps: Step[] = [validationStep];
@@ -60,8 +65,14 @@ export async function processLead(input: LeadInput, validationStep: Step) {
         consentAt: new Date(),
         temperature: classification.temperature,
         reason: classification.reason,
-        status: "PARCIAL",
-        steps: asJson(steps),
+        status: "PROCESSANDO",
+        steps: asJson([
+          ...steps,
+          { key: "gravacao", label: "Gravação no banco", status: "ok", ms: 0 },
+          waiting("resposta", "Resposta personalizada", "executando"),
+          waiting("email_cliente", "E-mail ao cliente", "pendente"),
+          waiting("email_equipe", "Aviso à equipe", "pendente"),
+        ]),
       },
       select: { id: true },
     });
@@ -96,6 +107,17 @@ export async function processLead(input: LeadInput, validationStep: Step) {
     });
   }
 
+  if (leadId) {
+    await saveProgress(leadId, {
+      reply,
+      steps: asJson([
+        ...steps,
+        waiting("email_cliente", "E-mail ao cliente", "executando"),
+        waiting("email_equipe", "Aviso à equipe", "executando"),
+      ]),
+    });
+  }
+
   // 5. E-mails ao cliente e à equipe, em paralelo
   const demoTag = config.demoMode ? "[Demo] " : "";
   const [clientStep, teamStep] = await Promise.all([
@@ -125,14 +147,15 @@ export async function processLead(input: LeadInput, validationStep: Step) {
   ]);
   steps.push(clientStep, teamStep);
 
-  const status = steps.some((s) => s.status === "erro") ? "PARCIAL" : "COMPLETO";
-  if (leadId) {
-    await prisma.lead
-      .update({ where: { id: leadId }, data: { reply, status, steps: asJson(steps) } })
-      .catch((err) => console.error("lead: falha ao atualizar etapas", err));
-  }
+  const status = leadStatus(steps);
+  if (leadId) await saveProgress(leadId, { reply, status, steps: asJson(steps) });
 
   return { leadId, status, temperature: classification.temperature, steps } as const;
+}
+
+/** Atualiza o lead no banco sem derrubar o fluxo: se falhar, o painel expira o lead depois de 60 s. */
+function saveProgress(id: string, data: Prisma.LeadUpdateInput) {
+  return prisma.lead.update({ where: { id }, data }).catch((err) => console.error("lead: falha ao atualizar etapas", err));
 }
 
 async function emailStep(

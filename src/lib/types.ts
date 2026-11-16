@@ -1,12 +1,17 @@
-export type StepStatus = "ok" | "erro" | "pulada";
+/** "pendente" e "executando" só existem enquanto o lead está em PROCESSANDO. */
+export type StepStatus = "ok" | "erro" | "pulada" | "pendente" | "executando";
 
 export type Step = {
   key: "validacao" | "classificacao" | "gravacao" | "resposta" | "email_cliente" | "email_equipe";
   label: string;
   status: StepStatus;
   detail?: string;
+  /** Etapa concluída com o texto padrão no lugar da IA: o painel mostra "ok (padrão)". */
+  fallback?: boolean;
   ms: number;
 };
+
+export type LeadStatus = "PROCESSANDO" | "COMPLETO" | "PARCIAL";
 
 export type Temperature = "QUENTE" | "MORNO" | "FRIO";
 
@@ -22,7 +27,7 @@ export type PanelLead = {
   temperature: Temperature;
   reason: string;
   reply: string | null;
-  status: "COMPLETO" | "PARCIAL";
+  status: LeadStatus;
   steps: Step[];
 };
 
@@ -39,7 +44,7 @@ export type LeadResponse =
   | {
       ok: true;
       leadId: string | null;
-      status: "COMPLETO" | "PARCIAL";
+      status: LeadStatus;
       temperature: Temperature;
       steps: Step[];
     }

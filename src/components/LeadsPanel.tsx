@@ -8,6 +8,8 @@ import { StatusBadge, TemperatureBadge } from "./Badges";
 import { StepList } from "./StepList";
 
 const POLL_MS = 5000;
+// Enquanto há lead em PROCESSANDO (ou um lead de teste saindo), consulta mais rápido para mostrar as etapas avançando.
+const FAST_POLL_MS = 1200;
 
 // Perfis fictícios para o botão de teste: um quente, um morno e um frio, em rodízio.
 const TEST_LEADS: (LeadInput & { profile: string })[] = [
@@ -59,6 +61,8 @@ export function LeadsPanel() {
   const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const next = useRef(0);
+  const fast = useRef({ processing: false, sending: false });
+  const kick = useRef<() => void>(() => {});
 
   const load = useCallback(async () => {
     try {
@@ -66,6 +70,7 @@ export function LeadsPanel() {
       if (!res.ok) throw new Error(String(res.status));
       const body = (await res.json()) as PanelPage;
       setData(body);
+      fast.current.processing = body.leads.some((l) => l.status === "PROCESSANDO");
       if (body.page !== pageRef.current) setPage((pageRef.current = body.page));
       setLoadError(false);
       setUpdatedAt(new Date());
@@ -75,14 +80,23 @@ export function LeadsPanel() {
   }, []);
 
   useEffect(() => {
-    const first = setTimeout(load, 0);
-    // Polling leve: pausa com a aba em segundo plano.
-    const id = setInterval(() => {
-      if (!document.hidden) load();
-    }, POLL_MS);
+    // Polling leve: pausa com a aba em segundo plano e acelera enquanto há lead em processamento.
+    let timer: ReturnType<typeof setTimeout>;
+    let stopped = false;
+    const tick = async () => {
+      clearTimeout(timer);
+      if (!document.hidden) await load();
+      const { processing, sending } = fast.current;
+      if (!stopped) timer = setTimeout(tick, processing || sending ? FAST_POLL_MS : POLL_MS);
+    };
+    kick.current = () => {
+      clearTimeout(timer);
+      timer = setTimeout(tick, FAST_POLL_MS);
+    };
+    timer = setTimeout(tick, 0);
     return () => {
-      clearTimeout(first);
-      clearInterval(id);
+      stopped = true;
+      clearTimeout(timer);
     };
   }, [load]);
 
@@ -97,6 +111,8 @@ export function LeadsPanel() {
     next.current++;
     setSending(true);
     setNotice(null);
+    fast.current.sending = true;
+    kick.current();
     try {
       const res = await fetch("/api/lead", {
         method: "POST",
@@ -117,6 +133,7 @@ export function LeadsPanel() {
       setNotice({ kind: "error", text: "Sem conexão com o servidor." });
     } finally {
       setSending(false);
+      fast.current.sending = false;
     }
   }
 
@@ -191,6 +208,7 @@ export function LeadsPanel() {
 
       <h2 className="mt-16 font-display text-3xl uppercase leading-none tracking-wide sm:text-4xl">Leads recentes</h2>
       <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted">
+        <span className="font-medium text-text">Processando:</span> a automação ainda está rodando as etapas.{" "}
         <span className="font-medium text-text">Completo:</span> todas as etapas concluíram.{" "}
         <span className="font-medium text-text">Parcial:</span> uma etapa falhou e o fluxo continuou nas demais, de
         propósito, para mostrar a tolerância a falhas.
@@ -271,7 +289,7 @@ function LeadCard({ lead }: { lead: PanelLead }) {
         <section className="min-w-0 text-sm">
           <h4 className={label}>Resposta gerada</h4>
           <p className="mt-2 whitespace-pre-line break-words rounded-lg border border-line bg-surface-2 p-4 leading-relaxed text-muted">
-            {lead.reply ?? "Ainda não gerada."}
+            {lead.reply ?? (lead.status === "PROCESSANDO" ? "Gerando a resposta…" : "Não gerada.")}
           </p>
         </section>
       </div>

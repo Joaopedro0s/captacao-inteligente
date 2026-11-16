@@ -1,8 +1,5 @@
-import type { Step, StepStatus } from "@/lib/types";
+import type { Step } from "@/lib/types";
 import { IconCheck, IconMinus, IconX } from "./Icons";
-
-/** "pendente" e "executando" existem só na prévia animada da landing. */
-export type StepView = Omit<Step, "status"> & { status: StepStatus | "pendente" | "executando" };
 
 const STATUS = {
   ok: { text: "ok", icon: IconCheck, dot: "border-line-strong text-text", label: "text-muted" },
@@ -18,7 +15,7 @@ const STATUS = {
 } as const;
 
 /** Linha do tempo das etapas como stepper vertical. Texto puro: o React escapa tudo que vem do banco. */
-export function StepList({ steps }: { steps: StepView[] }) {
+export function StepList({ steps }: { steps: Step[] }) {
   return (
     <ol className="text-sm">
       {steps.map((step, i) => {
@@ -37,7 +34,7 @@ export function StepList({ steps }: { steps: StepView[] }) {
             <div className="min-w-0 flex-1 pt-0.5">
               <div className="flex flex-wrap items-baseline gap-x-2">
                 <span className={step.status === "pendente" ? "text-muted" : "text-text"}>{step.label}</span>
-                <span className={`text-xs ${s.label}`}>{s.text}</span>
+                <span className={`text-xs ${s.label}`}>{step.status === "ok" && step.fallback ? "ok (padrão)" : s.text}</span>
                 {step.ms > 0 && <span className="ml-auto font-mono text-xs text-muted">{step.ms} ms</span>}
               </div>
               {step.detail && <p className="mt-0.5 break-words text-xs text-muted">{step.detail}</p>}

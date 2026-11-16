@@ -16,6 +16,7 @@ enum Temperature {
 enum LeadStatus {
   COMPLETO
   PARCIAL
+  PROCESSANDO
 }
 
 model Lead {
@@ -31,7 +32,7 @@ model Lead {
   reason      String
   reply       String?
   status      LeadStatus  @default(PARCIAL)
-  /// Linha do tempo da automação: [{ key, label, status: "ok" | "erro" | "pulada", detail?, ms }]
+  /// Linha do tempo da automação: [{ key, label, status: "ok" | "erro" | "pulada" | "pendente" | "executando", detail?, fallback?, ms }]
   steps       Json        @default("[]")
 
   @@index([createdAt])

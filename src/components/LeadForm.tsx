@@ -10,14 +10,14 @@ import {
   type FieldErrors,
   type LeadField,
 } from "@/lib/lead-schema";
-import type { LeadResponse, Step } from "@/lib/types";
+import type { LeadResponse, LeadStatus, Step } from "@/lib/types";
 import { IconX } from "./Icons";
 import { StepList } from "./StepList";
 
 type State =
   | { kind: "idle" }
   | { kind: "loading" }
-  | { kind: "success"; status: "COMPLETO" | "PARCIAL"; steps: Step[] }
+  | { kind: "success"; status: LeadStatus; steps: Step[] }
   | { kind: "error"; message: string };
 
 const FIELD_ORDER: LeadField[] = ["name", "phone", "email", "service", "message", "consent"];

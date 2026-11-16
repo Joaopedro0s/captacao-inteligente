@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { TemperatureBadge } from "./Badges";
-import { StepList, type StepView } from "./StepList";
+import type { Step } from "@/lib/types";
+import { StepList } from "./StepList";
 
 // Dados fictícios. Os tempos imitam uma execução real da automação.
-const STEPS: Omit<StepView, "status">[] = [
+const STEPS: Omit<Step, "status">[] = [
   { key: "validacao", label: "Validação e limites", ms: 14 },
   { key: "classificacao", label: "Classificação por IA", ms: 812 },
   { key: "gravacao", label: "Gravação no banco", ms: 18 },
@@ -31,7 +32,7 @@ export function AutomationPreview() {
     return () => clearTimeout(id);
   }, [progress]);
 
-  const steps: StepView[] = STEPS.map((s, i) => ({
+  const steps: Step[] = STEPS.map((s, i) => ({
     ...s,
     ms: i < progress ? s.ms : 0,
     status: i < progress ? "ok" : i === progress ? "executando" : "pendente",
