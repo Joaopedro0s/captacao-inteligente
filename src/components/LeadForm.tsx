@@ -184,12 +184,13 @@ export function LeadForm() {
               aria-describedby={describedBy("consent")}
             />
             <label htmlFor="consent" className="text-sm text-muted">
-              Concordo com o uso dos meus dados para receber este orçamento, conforme a LGPD. Nesta
-              demonstração, o pedido aparece no{" "}
+              Concordo com o uso dos meus dados para receber este orçamento, conforme a LGPD. A mensagem é
+              analisada pelo Google Gemini, no plano gratuito, em que o Google pode usar o conteúdo para melhorar
+              seus produtos. Nesta demonstração, o pedido aparece no{" "}
               <Link href="/demo/leads" className="text-accent underline underline-offset-2">
-                painel público
+                painel público de leads
               </Link>{" "}
-              com e-mail e telefone mascarados.
+              com nome abreviado, e-mail e telefone mascarados e mensagem encurtada.
             </label>
           </div>
           {err("consent") && (

@@ -26,8 +26,9 @@ export default function LeadsPage() {
         <h1 className="text-3xl font-semibold tracking-tight">Painel da automação</h1>
         <p className="mt-3 max-w-3xl text-muted">
           Cada pedido passa por validação, classificação por IA, gravação no banco, resposta personalizada e avisos por
-          e-mail. Aqui você vê o resultado de cada etapa. Os dados são fictícios, e-mails e telefones aparecem
-          mascarados e, no modo demo, nenhum e-mail sai para o endereço digitado.
+          e-mail. Aqui você vê o resultado de cada etapa. A classificação e a resposta são geradas pelo Google Gemini
+          (plano gratuito). Os exemplos são fictícios; pedidos enviados por visitantes aparecem com nome abreviado,
+          e-mail e telefone mascarados e mensagem encurtada, e no modo demo nenhum e-mail sai para o endereço digitado.
         </p>
         <div className="mt-8">
           <LeadsPanel />
