@@ -161,11 +161,13 @@ Todas estão documentadas em [`.env.example`](.env.example).
 
    As migrações são aplicadas e o seed só insere os leads fictícios se o banco estiver vazio.
 
-Para restaurar os dados de demonstração depois que visitantes testarem o app:
+Para restaurar os dados de demonstração depois que visitantes testarem o app (apaga tudo e deixa só os 4 exemplos: quente, morno, frio e parcial):
 
 ```bash
-curl -X POST https://captacao-inteligente-teal.vercel.app/api/demo/reset -H "Authorization: Bearer SEU_RESET_TOKEN"
+RESET_TOKEN=seu-token DEMO_URL=https://captacao-inteligente-teal.vercel.app npm run demo:reset
 ```
+
+O script chama `POST /api/demo/reset`, que só funciona com o mesmo `RESET_TOKEN` cadastrado na Vercel (mínimo de 16 caracteres, comparação em tempo constante).
 
 ## Alternativa com n8n
 
