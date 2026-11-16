@@ -22,7 +22,7 @@ export default function LeadsPage() {
           </Link>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10">
+      <main id="conteudo" tabIndex={-1} className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 focus:outline-none">
         <h1 className="text-3xl font-semibold tracking-tight">Painel da automação</h1>
         <p className="mt-3 max-w-3xl text-muted">
           Cada pedido passa por validação, classificação por IA, gravação no banco, resposta personalizada e avisos por

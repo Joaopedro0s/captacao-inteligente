@@ -7,7 +7,7 @@ export function DemoBanner({ showPanelLink = true }: { showPanelLink?: boolean }
       depoimentos são fictícios. Não use dados reais.{" "}
       {showPanelLink && (
         <Link href="/demo/leads" className="text-accent underline underline-offset-2">
-          Ver a automação ao vivo
+          Abrir o painel da automação
         </Link>
       )}
     </div>

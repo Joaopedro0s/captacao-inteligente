@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DemoBanner } from "@/components/DemoBanner";
+import { Faq } from "@/components/Faq";
 import { LeadForm } from "@/components/LeadForm";
 
 const services = [
@@ -66,12 +67,6 @@ const faq = [
 export default function Home() {
   return (
     <>
-      <a
-        href="#conteudo"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-10 focus:rounded-md focus:bg-accent focus:px-3 focus:py-2 focus:text-accent-ink"
-      >
-        Pular para o conteúdo
-      </a>
       <DemoBanner />
 
       <header className="border-b border-line">
@@ -101,7 +96,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main id="conteudo" className="flex-1">
+      <main id="conteudo" tabIndex={-1} className="flex-1 focus:outline-none">
         <section className="mx-auto max-w-5xl px-4 py-16 sm:py-24">
           <p className="text-sm font-medium uppercase tracking-wider text-accent">São Paulo · Zona Oeste</p>
           <h1 className="mt-3 max-w-3xl text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
@@ -175,18 +170,8 @@ export default function Home() {
             <h2 id="faq-titulo" className="text-2xl font-semibold tracking-tight">
               Dúvidas frequentes
             </h2>
-            <div className="mt-6 divide-y divide-line border-y border-line">
-              {faq.map((item) => (
-                <details key={item.q} className="group py-4">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium">
-                    {item.q}
-                    <span aria-hidden="true" className="text-muted group-open:rotate-45">
-                      +
-                    </span>
-                  </summary>
-                  <p className="mt-2 text-sm text-muted">{item.a}</p>
-                </details>
-              ))}
+            <div className="mt-6">
+              <Faq items={faq} />
             </div>
           </div>
         </section>
@@ -213,7 +198,7 @@ export default function Home() {
           <p>Lume Estética Automotiva é uma empresa fictícia. Projeto de portfólio.</p>
           <p>
             <Link href="/demo/leads" className="underline underline-offset-2 hover:text-text">
-              Painel da automação
+              Painel de leads (demo)
             </Link>
             {" · "}
             <a

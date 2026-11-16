@@ -179,7 +179,8 @@ export function LeadsPanel() {
         <p className="mt-8 text-sm text-muted">Nenhum lead ainda. Envie um lead de teste para ver a automação.</p>
       )}
 
-      <ol className="mt-8 space-y-4">
+      <h2 className="mt-10 text-xl font-semibold tracking-tight">Leads recentes</h2>
+      <ol className="mt-4 space-y-4">
         {leads?.map((lead) => (
           <li key={lead.id} className="rounded-lg border border-line bg-surface p-5">
             <article aria-labelledby={`lead-${lead.id}`}>
