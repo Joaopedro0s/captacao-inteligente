@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LeadInput } from "@/lib/lead-schema";
-import type { LeadResponse, PanelPage } from "@/lib/types";
+import type { LeadResponse, PanelLead, PanelPage } from "@/lib/types";
 import { StatusBadge, TemperatureBadge } from "./Badges";
 import { StepList } from "./StepList";
 
@@ -47,6 +47,8 @@ const dateFormat = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Sao_Paulo",
 });
 
+const label = "text-xs font-medium uppercase tracking-wider text-muted";
+
 export function LeadsPanel() {
   const [data, setData] = useState<PanelPage | null>(null);
   const [page, setPage] = useState(1);
@@ -83,6 +85,12 @@ export function LeadsPanel() {
     };
   }, [load]);
 
+  function goTo(target: number) {
+    pageRef.current = target;
+    setPage(target);
+    load();
+  }
+
   async function sendTestLead() {
     const { profile, ...lead } = TEST_LEADS[next.current % TEST_LEADS.length];
     next.current++;
@@ -111,12 +119,6 @@ export function LeadsPanel() {
     }
   }
 
-  function goTo(target: number) {
-    pageRef.current = target;
-    setPage(target);
-    load();
-  }
-
   const leads = data?.leads ?? null;
 
   return (
@@ -127,23 +129,33 @@ export function LeadsPanel() {
             type="button"
             onClick={sendTestLead}
             disabled={sending}
-            className="rounded-md bg-accent px-4 py-2.5 font-semibold text-accent-ink disabled:opacity-60"
+            className="rounded-lg bg-accent px-6 py-3.5 font-medium text-accent-ink transition-colors hover:bg-accent-hover disabled:opacity-60"
           >
             {sending ? "Processando…" : "Enviar lead de teste"}
           </button>
-          <p className="mt-2 text-xs text-muted">Alterna entre um perfil quente, um morno e um frio.</p>
+          <p className="mt-2 text-sm text-muted">Alterna entre um perfil quente, um morno e um frio.</p>
         </div>
-        <p className="text-sm text-muted" aria-live="off">
-          <span aria-hidden="true" className="mr-1.5 inline-block size-2 rounded-full bg-accent align-middle" />
-          Atualiza a cada {POLL_MS / 1000}s
-          {updatedAt && ` · última leitura ${updatedAt.toLocaleTimeString("pt-BR")}`}
+        <p className="flex flex-wrap items-center gap-2 text-sm text-muted">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-accent px-2.5 py-0.5 text-xs font-medium text-accent">
+            <span aria-hidden="true" className="size-1.5 rounded-full bg-accent" />
+            Ao vivo
+          </span>
+          <span>
+            atualiza a cada {POLL_MS / 1000}s
+            {updatedAt && (
+              <>
+                {" · "}
+                <span className="font-mono">{updatedAt.toLocaleTimeString("pt-BR")}</span>
+              </>
+            )}
+          </span>
         </p>
       </div>
 
       <div aria-live="polite">
         {notice && (
           <p
-            className={`mt-4 rounded-md border bg-surface p-3 text-sm ${
+            className={`mt-6 rounded-lg border bg-surface-2 p-4 text-sm ${
               notice.kind === "ok" ? "border-line" : "border-danger/50 text-danger"
             }`}
           >
@@ -153,17 +165,17 @@ export function LeadsPanel() {
       </div>
 
       {data && (
-        <dl className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <dl className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           {[
             ["Leads", data.counts.total],
             ["Quentes", data.counts.QUENTE],
             ["Mornos", data.counts.MORNO],
             ["Frios", data.counts.FRIO],
             ["Parciais", data.counts.PARCIAL],
-          ].map(([label, value]) => (
-            <div key={label} className="flex flex-col rounded-lg border border-line bg-surface p-3">
-              <dt className="text-xs text-muted">{label}</dt>
-              <dd className="order-first text-2xl font-semibold">{value}</dd>
+          ].map(([name, value]) => (
+            <div key={name} className="flex flex-col rounded-xl border border-line bg-surface p-5">
+              <dt className="mt-2 text-sm text-muted">{name}</dt>
+              <dd className="order-first font-mono text-4xl font-medium">{value}</dd>
             </div>
           ))}
         </dl>
@@ -174,80 +186,93 @@ export function LeadsPanel() {
           Não foi possível atualizar a lista. Tentando de novo em instantes.
         </p>
       )}
-      {!leads && !loadError && <p className="mt-8 text-sm text-muted">Carregando leads…</p>}
+      {!leads && !loadError && <p className="mt-10 text-sm text-muted">Carregando leads…</p>}
+
+      <h2 className="mt-16 font-display text-3xl uppercase leading-none tracking-wide sm:text-4xl">Leads recentes</h2>
       {leads?.length === 0 && (
-        <p className="mt-8 text-sm text-muted">Nenhum lead ainda. Envie um lead de teste para ver a automação.</p>
+        <p className="mt-6 text-sm text-muted">Nenhum lead ainda. Envie um lead de teste para ver a automação.</p>
       )}
-
-      <h2 className="mt-10 text-xl font-semibold tracking-tight">Leads recentes</h2>
-      <ol className="mt-4 space-y-4">
+      <ol className="mt-6 space-y-6">
         {leads?.map((lead) => (
-          <li key={lead.id} className="rounded-lg border border-line bg-surface p-5">
-            <article aria-labelledby={`lead-${lead.id}`}>
-              <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                <h3 id={`lead-${lead.id}`} className="font-semibold">
-                  {lead.name}
-                </h3>
-                <TemperatureBadge value={lead.temperature} />
-                <StatusBadge value={lead.status} />
-                <span className="text-sm text-muted sm:ml-auto">
-                  <time dateTime={lead.createdAt}>{dateFormat.format(new Date(lead.createdAt))}</time>
-                </span>
-              </header>
-              <p className="mt-1 break-words text-sm text-muted">
-                {lead.service} · {lead.email} · {lead.phone}
-              </p>
-
-              <div className="mt-4 grid gap-6 lg:grid-cols-[3fr_2fr]">
-                <div className="min-w-0 space-y-4 text-sm">
-                  <section>
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted">Mensagem</h4>
-                    <p className="mt-1 whitespace-pre-line break-words">{lead.message}</p>
-                  </section>
-                  <section>
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted">Justificativa da IA</h4>
-                    <p className="mt-1 break-words">{lead.reason}</p>
-                  </section>
-                  <section>
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted">Resposta gerada</h4>
-                    <p className="mt-1 whitespace-pre-line break-words border-l-2 border-line pl-3 text-muted">
-                      {lead.reply ?? "Ainda não gerada."}
-                    </p>
-                  </section>
-                </div>
-                <section className="min-w-0">
-                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Linha do tempo</h4>
-                  <StepList steps={lead.steps} />
-                </section>
-              </div>
-            </article>
+          <li key={lead.id}>
+            <LeadCard lead={lead} />
           </li>
         ))}
       </ol>
 
       {data && data.totalPages > 1 && (
-        <nav aria-label="Páginas de leads" className="mt-6 flex items-center justify-between gap-4 text-sm">
+        <nav aria-label="Páginas de leads" className="mt-8 flex items-center justify-between gap-4 text-sm">
           <button
             type="button"
             onClick={() => goTo(page - 1)}
             disabled={page <= 1}
-            className="rounded-md border border-line px-3 py-2 disabled:opacity-40"
+            className="rounded-lg border border-line-strong px-4 py-2.5 transition-colors hover:border-accent disabled:opacity-40 disabled:hover:border-line-strong"
           >
             Mais recentes
           </button>
-          <span aria-live="polite">
-            Página {page} de {data.totalPages}
+          <span aria-live="polite" className="text-muted">
+            Página <span className="font-mono text-text">{page}</span> de{" "}
+            <span className="font-mono text-text">{data.totalPages}</span>
           </span>
           <button
             type="button"
             onClick={() => goTo(page + 1)}
             disabled={page >= data.totalPages}
-            className="rounded-md border border-line px-3 py-2 disabled:opacity-40"
+            className="rounded-lg border border-line-strong px-4 py-2.5 transition-colors hover:border-accent disabled:opacity-40 disabled:hover:border-line-strong"
           >
             Mais antigos
           </button>
         </nav>
       )}
     </div>
+  );
+}
+
+function LeadCard({ lead }: { lead: PanelLead }) {
+  const total = lead.steps.reduce((sum, s) => sum + s.ms, 0);
+  return (
+    <article aria-labelledby={`lead-${lead.id}`} className="rounded-xl border border-line bg-surface">
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line px-5 py-4 sm:px-6">
+        <h3 id={`lead-${lead.id}`} className="text-lg font-medium">
+          {lead.name}
+        </h3>
+        <TemperatureBadge value={lead.temperature} />
+        <StatusBadge value={lead.status} />
+        <time dateTime={lead.createdAt} className="font-mono text-xs text-muted sm:ml-auto">
+          {dateFormat.format(new Date(lead.createdAt))}
+        </time>
+        <p className="basis-full break-words text-sm text-muted">
+          {lead.service} · <span className="whitespace-nowrap font-mono text-xs">{lead.email}</span> ·{" "}
+          <span className="whitespace-nowrap font-mono text-xs">{lead.phone}</span>
+        </p>
+      </header>
+
+      <div className="grid gap-6 px-5 py-5 sm:px-6 md:grid-cols-2">
+        <div className="min-w-0 space-y-5 text-sm">
+          <section>
+            <h4 className={label}>Mensagem</h4>
+            <p className="mt-2 whitespace-pre-line break-words leading-relaxed">{lead.message}</p>
+          </section>
+          <section>
+            <h4 className={label}>Justificativa da IA</h4>
+            <p className="mt-2 break-words leading-relaxed">{lead.reason}</p>
+          </section>
+        </div>
+        <section className="min-w-0 text-sm">
+          <h4 className={label}>Resposta gerada</h4>
+          <p className="mt-2 whitespace-pre-line break-words rounded-lg border border-line bg-surface-2 p-4 leading-relaxed text-muted">
+            {lead.reply ?? "Ainda não gerada."}
+          </p>
+        </section>
+      </div>
+
+      <section className="border-t border-line px-5 py-5 sm:px-6">
+        <div className="mb-4 flex items-baseline justify-between gap-3">
+          <h4 className={label}>Linha do tempo</h4>
+          {total > 0 && <span className="font-mono text-xs text-muted">total {total} ms</span>}
+        </div>
+        <StepList steps={lead.steps} />
+      </section>
+    </article>
   );
 }
