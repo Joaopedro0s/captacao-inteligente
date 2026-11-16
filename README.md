@@ -6,9 +6,11 @@ Automação de captação de leads com IA para pequenas empresas de serviços: o
 
 **Demo ao vivo:** https://captacao-inteligente-teal.vercel.app · [painel da automação](https://captacao-inteligente-teal.vercel.app/demo/leads)
 
-| Landing com formulário | Painel da automação |
+![Fluxo completo: envio do formulário, etapas da automação e o lead chegando no painel](docs/fluxo.gif)
+
+| Landing com prévia da automação | Painel da automação |
 | --- | --- |
-| ![Landing page da Lume Estética Automotiva](docs/landing.jpg) | ![Painel com leads classificados e linha do tempo das etapas](docs/painel.jpg) |
+| ![Landing da Lume Estética Automotiva com a prévia animada das etapas](docs/landing.jpg) | ![Painel com contadores, lead classificado e linha do tempo das etapas](docs/painel.jpg) |
 
 ## O problema
 
@@ -24,11 +26,13 @@ Este projeto resolve as duas pontas:
 ```mermaid
 flowchart LR
     V[Visitante] -->|formulário| L["Landing (Next.js)"]
-    L -->|POST /api/lead| F["Função serverless<br/>(Vercel)"]
-    F -->|rate limit, leads| DB[("PostgreSQL<br/>Neon")]
-    F -->|classificação e resposta| AI["Gemini Flash-Lite<br/>(Google)"]
-    F -->|e-mails| R[Resend]
-    P["Painel /demo/leads"] -->|GET /api/leads a cada 5s| F
+    L -->|POST /api/lead| F["Funções serverless<br/>(Vercel)"]
+    F -->|rate limit, cota diária, leads| DB[("PostgreSQL<br/>Neon")]
+    F -->|classificação e resposta<br/>nome, serviço e mensagem| AI["Gemini 3.5 Flash-Lite<br/>(Google)"]
+    F -->|e-mails só para DEMO_RECIPIENT| R[Resend]
+    F -.->|erro completo| LOG["Log do servidor<br/>(Vercel)"]
+    P["Painel /demo/leads"] -->|"GET /api/leads?page=N a cada 5s<br/>dados mascarados e erros genéricos"| F
+    S["npm run demo:reset"] -->|"POST /api/demo/reset + RESET_TOKEN"| F
 ```
 
 Tudo roda em funções serverless na Vercel e serviços gerenciados no plano gratuito: não há servidor, fila ou n8n para manter ligado.
@@ -45,22 +49,23 @@ sequenceDiagram
     C->>API: pedido (nome, telefone, e-mail, serviço, mensagem, consentimento)
     API->>API: 1. tamanho, honeypot e schema zod
     API->>DB: 1. rate limit por IP + cota diária global
+    Note over API: cota esgotada: 429 amigável, sem chamar a IA
     API->>IA: 2. classificar (JSON validado com zod; 2 tentativas; senão "morno")
     API->>DB: 3. gravar lead com classificação
-    API->>IA: 4. gerar resposta (sem preço nem prazo)
+    API->>IA: 4. gerar resposta no tom da classificação (sem preço nem prazo)
     par
         API->>E: 5. resposta ao cliente
     and
         API->>E: 5. aviso à equipe
     end
     API->>DB: status de cada etapa (completo ou parcial)
-    API-->>C: status de cada etapa
+    API-->>C: status de cada etapa, só com mensagens genéricas
 ```
 
 1. **Validação e limites.** O corpo é limitado a 8 KB, o honeypot descarta bots em silêncio, e o mesmo schema zod do formulário valida os campos. Depois, o rate limit por IP (5 por hora) e a cota diária global são checados no Postgres, compartilhado por todas as funções serverless. Se o banco não responder, a IA não é chamada.
-2. **Classificação por IA.** O Gemini devolve `{ "temperatura", "justificativa" }` em JSON estruturado, que é validado de novo com zod. Se vier inválido, há uma nova tentativa; se falhar de novo, o lead entra como **morno** com o motivo "classificação indisponível".
+2. **Classificação por IA.** O Gemini devolve `{ "temperatura", "justificativa" }` em JSON estruturado, que é validado de novo com zod. Se vier inválido, há uma nova tentativa; se falhar de novo, o lead entra como **morno**.
 3. **Gravação.** O lead é salvo com a classificação e a linha do tempo das etapas até ali.
-4. **Resposta personalizada.** Texto curto e cordial. Se a IA falhar ou citar preço, prazo ou desconto, entra uma resposta padrão segura.
+4. **Resposta personalizada.** O tom segue a classificação: objetivo para leads quentes, sem pressão para mornos e neutro para frios, pedindo mais detalhes (modelo do carro, estado atual, o que quer melhorar). Se a IA falhar ou citar preço, prazo ou desconto, entra um texto padrão seguro.
 5. **E-mails.** A resposta vai ao cliente e um resumo vai à equipe, em paralelo. No modo demo, os dois vão só para `DEMO_RECIPIENT`.
 6. **Retorno.** O front recebe o status de cada etapa (`ok`, `erro` ou `pulada`), e o painel mostra o lead como **completo** ou **parcial**.
 
@@ -68,28 +73,52 @@ Uma falha nunca derruba as etapas seguintes. Cada uma registra status, detalhe e
 
 ## Decisões técnicas
 
-**Por que serverless.** Um lead é um evento curto e esporádico. Funções na Vercel atendem 24/7 sem custo parado, escalam sozinhas e eliminam o "servidor que precisa ficar ligado". O estado compartilhado (leads e contadores de limite) fica no Postgres do Neon, que também é serverless.
+### Por que serverless
 
-**Por que classificação estruturada.** Texto livre da IA não serve para automação. A classificação usa *structured outputs* com um JSON Schema gerado do mesmo schema zod que valida a resposta (`src/lib/ai.ts`). O código nunca confia na saída sem validar, sempre tem um fallback determinístico e o painel mostra quando ele foi usado.
+Um lead é um evento curto e esporádico. Funções na Vercel atendem 24/7 sem custo parado, escalam sozinhas e eliminam o "servidor que precisa ficar ligado". O estado compartilhado (leads e contadores de limite) fica no Postgres do Neon, que também é serverless. Por isso o rate limit não usa memória: cada invocação pode rodar numa instância diferente.
 
-**Como evitei prompt injection.** A mensagem do cliente é dado, nunca instrução:
+### Por que classificação estruturada
+
+Texto livre da IA não serve para automação. A classificação usa *structured outputs* com um JSON Schema gerado do mesmo schema zod que valida a resposta (`src/lib/ai.ts`). O código nunca confia na saída sem validar, tenta de novo uma vez e, se ainda assim falhar, usa um fallback determinístico ("morno"). O painel mostra quando o fallback foi usado.
+
+### Proteção contra prompt injection
+
+A mensagem do cliente é dado, nunca instrução:
 
 - vai serializada como JSON dentro de `<pedido>…</pedido>`, com `<` e `>` escapados, para que o texto não consiga fechar a tag e "sair" da área de dados;
-- o system prompt diz explicitamente para ignorar qualquer instrução dentro do pedido;
+- o system prompt diz explicitamente para ignorar qualquer instrução dentro do pedido; o tom da resposta (que depende da classificação) também vai no system prompt, nunca misturado à mensagem;
 - a classificação só aceita `quente`, `morno` ou `frio` (zod), então o pior que uma injeção consegue é mudar a própria classificação;
 - a resposta passa por um filtro que troca o texto se aparecer preço, prazo ou desconto;
 - e-mails são só texto puro e o painel renderiza tudo como texto (React escapa; não há `dangerouslySetInnerHTML`).
 
-**Como evitei abuso de custo.**
+Há testes que enviam uma mensagem tentando fechar a tag e confirmam que ela continua dentro da área de dados.
 
-- Modelo gratuito e rápido (Gemini 3.5 Flash-Lite, plano free do Google AI Studio), raciocínio no mínimo, limite de 300 tokens (classificação) e 500 (resposta), timeout de 8 s por chamada e no máximo 3 chamadas à IA por lead no pior caso.
-- Rate limit por IP (`RATE_LIMIT_PER_HOUR`) e cota diária global (`DAILY_LEAD_LIMIT`): ao atingir, o app responde com mensagem amigável e **não** chama a IA.
+### Controle de custo
+
+- Modelo gratuito e rápido (Gemini 3.5 Flash-Lite, plano free do Google AI Studio), raciocínio no mínimo, limite de 300 tokens (classificação) e 500 (resposta), timeout de 8 s por chamada.
+- Rate limit por IP (`RATE_LIMIT_PER_HOUR`) e cota diária global (`DAILY_LEAD_LIMIT`). Ao atingir a cota, o app responde `429` com mensagem amigável e `Retry-After`, **sem chamar a IA** (coberto por teste na rota).
 - O IP nunca é salvo puro, só como hash SHA-256 com salt (`IP_HASH_SALT`).
 - Honeypot e limite de tamanho barram spam antes de qualquer custo.
 
-**Privacidade.** O painel é público, então a API reduz tudo o que identifica uma pessoa: nome vira primeiro nome + inicial (`Marina T.`), e-mail e telefone saem mascarados (`m***@e***.com`, `(**) *****-**21`), a mensagem é cortada em 200 caracteres e só 10 leads aparecem por página. No modo demo, nenhum e-mail é enviado ao endereço digitado no formulário. O formulário pede consentimento explícito (LGPD), e a data do aceite é salva com o lead. **O provedor de IA é o Google Gemini** (`gemini-3.5-flash-lite`, plano gratuito do AI Studio). Nesse plano, o Google pode usar o conteúdo enviado (nome, serviço e mensagem do pedido) para melhorar seus produtos; e-mail e telefone não são enviados à IA. Por isso o formulário, a FAQ e o banner avisam para não usar dados reais. Em produção, use o plano pago, em que o conteúdo não é usado dessa forma.
+### Privacidade do painel
 
-**Provedor de IA isolado.** Só `src/lib/ai.ts` conhece o Gemini, chamado direto pela API REST, sem SDK. O projeto começou com a Anthropic e foi trocado para o Gemini por causa do plano gratuito: a troca mexeu só nesse arquivo. Para trocar de novo, basta reescrever as funções `callGemini` e `complete`; os prompts, o parser e o fallback continuam os mesmos.
+O painel é público, então a API reduz tudo o que identifica uma pessoa, inclusive em registros antigos:
+
+- nome vira primeiro nome + inicial (`Marina T.`); e-mail e telefone saem mascarados (`m***@e***.com`, `(**) *****-**21`);
+- a mensagem é cortada em 200 caracteres e só 10 leads aparecem por página;
+- **erros de provedores nunca chegam ao front**: o pipeline grava só mensagens fixas ("IA indisponível; usada a classificação padrão") e manda o erro completo para o log do servidor. Na saída, uma lista de permissões troca qualquer outro detalhe (request_id, mensagem de cobrança, stack, nome de provedor) por um texto genérico.
+
+No modo demo, nenhum e-mail é enviado ao endereço digitado no formulário. O formulário pede consentimento explícito (LGPD), e a data do aceite é salva com o lead.
+
+**O provedor de IA é o Google Gemini** (`gemini-3.5-flash-lite`, plano gratuito do AI Studio). Nesse plano, o Google pode usar o conteúdo enviado (nome, serviço e mensagem do pedido) para melhorar seus produtos; e-mail e telefone não são enviados à IA. Por isso o formulário, a FAQ e o banner avisam para não usar dados reais. Em produção, use o plano pago, em que o conteúdo não é usado dessa forma.
+
+### Provedor de IA isolado
+
+Só `src/lib/ai.ts` conhece o Gemini, chamado direto pela API REST, sem SDK. O projeto começou com a Anthropic e foi trocado para o Gemini por causa do plano gratuito: a troca mexeu só nesse arquivo. Para trocar de novo, basta reescrever as funções `callGemini` e `complete`; os prompts, o parser e o fallback continuam os mesmos.
+
+### Design e acessibilidade
+
+Tema escuro com um único acento (índigo `#6E74F7`), todas as cores em tokens CSS (`src/app/globals.css`) e contrastes AA medidos. Branco sobre o índigo puro dá 3,8:1, por isso os CTAs usam texto escuro e o badge "quente" usa um índigo um tom mais escuro. Títulos em Barlow Condensed, corpo em Geist e números em JetBrains Mono. A prévia animada da landing usa os mesmos componentes do painel e fica estática com `prefers-reduced-motion`. FAQ com botões reais (`aria-expanded`/`aria-controls`), link "Pular para o conteúdo", foco visível e layout sem rolagem horizontal de 375 px a 1280 px.
 
 ## Stack
 
@@ -191,21 +220,27 @@ Diferenças em relação ao app: não há rate limit nem cota diária (configure
 ```
 src/
   app/
-    page.tsx               landing da empresa fictícia
-    demo/leads/page.tsx    painel da automação
-    api/lead/route.ts      automação (POST)
-    api/leads/route.ts     leads para o painel, mascarados (GET)
-    api/demo/reset/route.ts reset protegido por token (POST)
-  components/              formulário, painel, linha do tempo e badges
+    page.tsx                 landing da empresa fictícia
+    demo/leads/page.tsx      painel da automação
+    api/lead/route.ts        automação (POST)
+    api/leads/route.ts       leads paginados e mascarados para o painel (GET)
+    api/demo/reset/route.ts  reset protegido por token (POST)
+    globals.css              tokens de cor e tipografia
+  components/                formulário, painel, prévia animada, stepper, FAQ, badges e ícones
   lib/
-    lead-schema.ts         schema zod único (cliente e servidor)
-    pipeline.ts            etapas 2 a 5 e registro de status
-    ai.ts                  provedor de IA, prompts, parser e filtros
-    rate-limit.ts          limites por IP e diário
-    email.ts               Resend e regra do modo demo
-prisma/                    schema, migrações e seed
-n8n/workflow.json          alternativa em n8n
-tests/                     Vitest
+    lead-schema.ts           schema zod único (cliente e servidor)
+    pipeline.ts              etapas 2 a 5 e registro de status
+    step-messages.ts         mensagens públicas das etapas e filtro por lista de permissões
+    ai.ts                    provedor de IA, prompts, parser e filtros
+    mask.ts                  máscaras de nome, e-mail, telefone e mensagem
+    rate-limit.ts            limites por IP e diário
+    email.ts                 Resend e regra do modo demo
+    seed-data.ts             4 leads de exemplo (quente, morno, frio e parcial)
+scripts/reset-demo.ts        npm run demo:reset
+prisma/                      schema, migrações e seed
+n8n/workflow.json            alternativa em n8n
+tests/                       Vitest
+docs/                        GIF e prints do README
 ```
 
 ## Próximos passos
