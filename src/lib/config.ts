@@ -5,7 +5,9 @@ const positiveInt = (value: string | undefined, fallback: number) => {
 
 export const config = {
   aiModel: process.env.AI_MODEL || "gemini-3.5-flash-lite",
-  aiTimeoutMs: positiveInt(process.env.AI_TIMEOUT_MS, 8000),
+  // Limite por tentativa e limite total de cada etapa de IA (com no máximo 1 nova tentativa).
+  aiTimeoutMs: positiveInt(process.env.AI_TIMEOUT_MS, 4000),
+  aiBudgetMs: 8000,
   emailFrom: process.env.EMAIL_FROM || "Lume Estética Automotiva <onboarding@resend.dev>",
   emailTimeoutMs: 8000,
   teamEmail: process.env.TEAM_EMAIL || "",

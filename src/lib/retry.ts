@@ -1,5 +1,8 @@
 export class NonRetryableError extends Error {}
 
+/** A etapa passou do orçamento total de tempo; quem chama segue com o texto ou a classificação padrão. */
+export class DeadlineError extends Error {}
+
 type RetryOptions = {
   retries?: number;
   baseMs?: number;

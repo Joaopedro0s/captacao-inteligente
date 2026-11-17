@@ -9,6 +9,8 @@ export const STEP_MESSAGES = {
   aiInvalidFormat: "Resposta da IA fora do formato; usada a classificação padrão (morno).",
   aiUnavailableReply: "IA indisponível; usado o texto padrão.",
   replyFiltered: "A resposta citava preço ou prazo; trocada pelo texto padrão.",
+  replyTruncated: "A resposta da IA veio incompleta; usado o texto padrão.",
+  replySlow: "A IA passou de 8 s; usado o texto padrão.",
   dbFailed: "Falha ao gravar no banco.",
   emailFailed: "Falha no envio do e-mail.",
   emailSkipped: "Envio de e-mail não configurado nesta demonstração.",

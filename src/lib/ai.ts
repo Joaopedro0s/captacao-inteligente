@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { config } from "./config";
 import type { LeadInput } from "./lead-schema";
-import { NonRetryableError, withRetry } from "./retry";
+import { DeadlineError, NonRetryableError } from "./retry";
 import type { Temperature } from "./types";
 
 // ---------- Provedor ----------
@@ -16,7 +16,7 @@ type GeminiResponse = {
   error?: { message?: string };
 };
 
-async function callGemini(body: object): Promise<GeminiResponse> {
+async function callGemini(body: object, timeoutMs: number): Promise<GeminiResponse> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new NonRetryableError("GEMINI_API_KEY não configurada");
   let res: Response;
@@ -27,42 +27,90 @@ async function callGemini(body: object): Promise<GeminiResponse> {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-goog-api-key": key },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(config.aiTimeoutMs),
+        signal: AbortSignal.timeout(timeoutMs),
       },
     );
   } catch (err) {
     // Timeout ou falha de rede: vale tentar de novo.
-    throw new RetryableError(`Gemini: ${err instanceof Error ? err.message : "falha de rede"}`);
+    const timedOut = err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
+    throw new RetryableError(timedOut ? `timeout de ${timeoutMs} ms` : `falha de rede (${(err as Error)?.message})`);
   }
   const data = (await res.json().catch(() => ({}))) as GeminiResponse;
   if (res.ok) return data;
   const message = `Gemini ${res.status}: ${data.error?.message ?? res.statusText}`;
-  throw res.status === 429 || res.status >= 500 ? new RetryableError(message) : new NonRetryableError(message);
+  if (res.status === 429) throw new RetryableError(`${message} (limite de cota do plano gratuito)`);
+  throw res.status >= 500 ? new RetryableError(message) : new NonRetryableError(message);
 }
 
-async function complete(opts: { system: string; user: string; maxTokens: number; jsonSchema?: Record<string, unknown> }) {
-  const data = await withRetry(
-    () =>
-      callGemini({
-        systemInstruction: { parts: [{ text: opts.system }] },
-        contents: [{ role: "user", parts: [{ text: opts.user }] }],
-        generationConfig: {
-          maxOutputTokens: opts.maxTokens,
-          // Tarefa curta: raciocínio no mínimo, para custo e latência baixos.
-          thinkingConfig: { thinkingLevel: "minimal" },
-          ...(opts.jsonSchema && { responseMimeType: "application/json", responseJsonSchema: opts.jsonSchema }),
-        },
-      }),
-    { shouldRetry: (err) => err instanceof RetryableError },
-  );
-  if (data.promptFeedback?.blockReason) {
-    throw new NonRetryableError(`a IA bloqueou o pedido (${data.promptFeedback.blockReason})`);
+const MAX_RETRIES = 1;
+const RETRY_BACKOFF_MS = 250;
+
+/**
+ * Log do servidor com o desfecho de cada chamada: tempo, tentativas e o motivo das falhas
+ * (timeout, cota 429, 5xx). Nunca inclui o conteúdo do pedido; nada disso vai ao painel.
+ */
+function logAi(task: string, started: number, attempts: number, failures: string[], outcome: string) {
+  const line = `ia: ${task} ${outcome} em ${Math.round(performance.now() - started)} ms, ${attempts} tentativa(s)`;
+  const detail = failures.length ? `; falhas: ${failures.join(" | ")}` : "";
+  (outcome === "ok" ? console.info : console.warn)(line + detail);
+}
+
+/**
+ * Uma chamada com no máximo 1 nova tentativa (backoff de 250 ms) para timeout, rede, 429 ou 5xx.
+ * Cada tentativa tem até config.aiTimeoutMs e a etapa inteira, até config.aiBudgetMs:
+ * passou disso, lança DeadlineError.
+ */
+async function complete(opts: {
+  task: string;
+  system: string;
+  user: string;
+  maxTokens: number;
+  jsonSchema?: Record<string, unknown>;
+}): Promise<{ text: string; truncated: boolean }> {
+  const body = {
+    systemInstruction: { parts: [{ text: opts.system }] },
+    contents: [{ role: "user", parts: [{ text: opts.user }] }],
+    generationConfig: {
+      maxOutputTokens: opts.maxTokens,
+      // Tarefa curta: raciocínio no mínimo, para custo e latência baixos.
+      thinkingConfig: { thinkingLevel: "minimal" },
+      ...(opts.jsonSchema && { responseMimeType: "application/json", responseJsonSchema: opts.jsonSchema }),
+    },
+  };
+  const started = performance.now();
+  const deadline = started + config.aiBudgetMs;
+  const failures: string[] = [];
+  for (let attempt = 1; ; attempt++) {
+    const remaining = Math.floor(deadline - performance.now());
+    let data: GeminiResponse;
+    try {
+      if (remaining <= 0) throw new DeadlineError(`${opts.task}: passou de ${config.aiBudgetMs} ms`);
+      data = await callGemini(body, Math.min(config.aiTimeoutMs, remaining));
+    } catch (err) {
+      if (err instanceof RetryableError) failures.push(err.message);
+      if (err instanceof DeadlineError || performance.now() >= deadline - 5) {
+        logAi(opts.task, started, attempt, failures, `passou do limite de ${config.aiBudgetMs} ms`);
+        throw err instanceof DeadlineError ? err : new DeadlineError(`${opts.task}: passou de ${config.aiBudgetMs} ms`);
+      }
+      if (!(err instanceof RetryableError) || attempt > MAX_RETRIES) {
+        logAi(opts.task, started, attempt, failures, "falhou");
+        throw err;
+      }
+      await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS));
+      continue;
+    }
+    logAi(opts.task, started, attempt, failures, "ok");
+    if (data.promptFeedback?.blockReason) {
+      throw new NonRetryableError(`a IA bloqueou o pedido (${data.promptFeedback.blockReason})`);
+    }
+    const candidate = data.candidates?.[0];
+    const text = (candidate?.content?.parts ?? [])
+      .filter((p) => !p.thought)
+      .map((p) => p.text ?? "")
+      .join("")
+      .trim();
+    return { text, truncated: candidate?.finishReason === "MAX_TOKENS" };
   }
-  return (data.candidates?.[0]?.content?.parts ?? [])
-    .filter((p) => !p.thought)
-    .map((p) => p.text ?? "")
-    .join("")
-    .trim();
 }
 
 // ---------- Prompt injection ----------
@@ -131,7 +179,8 @@ export function parseClassification(text: string): Classification | null {
 /** Duas tentativas para obter JSON válido. Retorna null se ambas vierem inválidas; lança em erro de API. */
 export async function classifyLead(input: LeadInput): Promise<Classification | null> {
   for (let attempt = 0; attempt < 2; attempt++) {
-    const text = await complete({
+    const { text } = await complete({
+      task: "classificação",
       system: CLASSIFY_SYSTEM,
       user: leadAsData(input),
       maxTokens: 300, // o limite inclui tokens de raciocínio
@@ -187,8 +236,25 @@ export function sanitizeReply(
   return { text: clean, replaced: false };
 }
 
-export async function generateReply(input: LeadInput, temperature: Temperature) {
+/** Teto de saída da resposta: cabe com folga no texto pedido e evita respostas longas (e lentas). */
+const REPLY_MAX_TOKENS = 256;
+
+/**
+ * Resposta personalizada. `fallback` diz quando o texto padrão entrou no lugar da IA:
+ * "filtered" (citou preço ou prazo) ou "truncated" (a IA parou no limite de tokens).
+ */
+export async function generateReply(
+  input: LeadInput,
+  temperature: Temperature,
+): Promise<{ text: string; fallback: "filtered" | "truncated" | null }> {
   const system = `${REPLY_SYSTEM}\n\nTom para este pedido: ${REPLY_TONE[temperature]}`;
-  const text = await complete({ system, user: leadAsData(input), maxTokens: 500 });
-  return sanitizeReply(text, input.name, temperature);
+  const { text, truncated } = await complete({
+    task: "resposta",
+    system,
+    user: leadAsData(input),
+    maxTokens: REPLY_MAX_TOKENS,
+  });
+  if (truncated) return { text: fallbackReply(input.name, temperature), fallback: "truncated" };
+  const clean = sanitizeReply(text, input.name, temperature);
+  return { text: clean.text, fallback: clean.replaced ? "filtered" : null };
 }

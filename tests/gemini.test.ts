@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { classifyLead, fallbackReply, generateReply } from "@/lib/ai";
+import { config } from "@/lib/config";
+import { DeadlineError } from "@/lib/retry";
 
 const lead = {
   name: "Ana Souza",
@@ -16,11 +18,14 @@ const geminiText = (text: string, status = 200) =>
 const fetchMock = vi.fn<typeof fetch>();
 
 beforeEach(() => {
+  vi.spyOn(console, "info").mockImplementation(() => {});
+  vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.stubEnv("GEMINI_API_KEY", "chave-de-teste");
   vi.stubGlobal("fetch", fetchMock);
   fetchMock.mockReset();
 });
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
 });
@@ -93,5 +98,44 @@ describe("tom da resposta conforme a classificação", () => {
     expect(text).toMatch(/^Olá, ana\./);
     expect(text).toContain("modelo do carro");
     expect(text).not.toMatch(/!|felizes/);
+  });
+});
+
+describe("latência e tentativas", () => {
+  const { aiTimeoutMs, aiBudgetMs } = config;
+  afterEach(() => Object.assign(config, { aiTimeoutMs, aiBudgetMs }));
+
+  it("faz no máximo 1 nova tentativa e registra o motivo no log do servidor", async () => {
+    fetchMock.mockImplementation(async () => new Response(JSON.stringify({ error: { message: "quota" } }), { status: 429 }));
+
+    await expect(generateReply(lead, "MORNO")).rejects.toThrow("429");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(console.warn).toHaveBeenCalledWith(expect.stringMatching(/resposta falhou .*2 tentativa\(s\).*cota do plano gratuito/));
+    // O log não leva o conteúdo do pedido.
+    expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toContain(lead.message);
+  });
+
+  it("passa do limite total de tempo e lança DeadlineError, sem esperar a IA", async () => {
+    Object.assign(config, { aiTimeoutMs: 40, aiBudgetMs: 60 });
+    // IA que nunca responde: só termina quando o timeout da tentativa aborta a requisição.
+    fetchMock.mockImplementation(
+      (_url, init) => new Promise((_, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal!.reason))),
+    );
+
+    const started = performance.now();
+    await expect(generateReply(lead, "MORNO")).rejects.toBeInstanceOf(DeadlineError);
+    expect(performance.now() - started).toBeLessThan(500);
+    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(2);
+  });
+
+  it("limita os tokens da resposta e troca texto cortado pelo padrão", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "Olá, Ana. A vitrificação" }] }, finishReason: "MAX_TOKENS" }] })),
+    );
+
+    const reply = await generateReply(lead, "MORNO");
+    expect(reply).toEqual({ text: fallbackReply(lead.name, "MORNO"), fallback: "truncated" });
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(body.generationConfig.maxOutputTokens).toBeLessThanOrEqual(256);
   });
 });
