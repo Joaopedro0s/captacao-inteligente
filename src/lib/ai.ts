@@ -142,13 +142,20 @@ export const FALLBACK_CLASSIFICATION: Classification = {
   reason: "classificação indisponível",
 };
 
+// Critérios compartilhados: a classificação e o tom da resposta usam exatamente os mesmos.
+const CRITERIA: Record<Temperature, string> = {
+  QUENTE: "serviço definido e sinal claro de compra (urgência, data, carro novo, pede horário)",
+  MORNO: "interesse real, mas ainda pesquisando, comparando ou com dúvidas antes de decidir",
+  FRIO: "pergunta genérica, sem intenção clara, teste ou mensagem fora do assunto",
+};
+
 const CLASSIFY_SYSTEM = `Você classifica pedidos de orçamento de uma estética automotiva.
 ${DATA_RULE}
 
 Critérios:
-- quente: serviço definido e sinal claro de compra (urgência, data, carro novo, pede horário).
-- morno: interesse real, mas ainda pesquisando, comparando ou com dúvidas antes de decidir.
-- frio: pergunta genérica, sem intenção clara, teste ou mensagem fora do assunto.
+- quente: ${CRITERIA.QUENTE}.
+- morno: ${CRITERIA.MORNO}.
+- frio: ${CRITERIA.FRIO}.
 
 A justificativa é uma frase curta (até 200 caracteres) em português do Brasil, com acentuação e ortografia
 corretas (ex.: "Cliente já definiu o serviço e pede horário para esta semana."). Não copie trechos da mensagem.
@@ -205,7 +212,7 @@ Regras:
 - Nunca cite preços, valores, descontos, prazos, datas, horários ou garantias. Não prometa nada.
 - Termine exatamente com "Equipe Lume.", no mesmo parágrafo.`;
 
-// O tom depende da classificação, que é dado nosso (não vem do cliente); por isso vai no system prompt.
+// A resposta roda em paralelo com a classificação, então escolhe o tom sozinha com os mesmos critérios.
 const REPLY_TONE: Record<Temperature, string> = {
   QUENTE:
     "O pedido tem intenção clara. Seja objetivo: diga que a equipe vai entrar em contato para combinar a avaliação do carro.",
@@ -214,6 +221,11 @@ const REPLY_TONE: Record<Temperature, string> = {
   FRIO:
     "O pedido não mostra intenção clara. Seja neutro e breve, não presuma interesse de compra e peça mais detalhes: modelo do carro, estado atual e o que a pessoa gostaria de melhorar.",
 };
+
+const REPLY_TONE_RULES = `Escolha o tom pelo pedido, com os mesmos critérios da classificação da equipe:
+- Se houver ${CRITERIA.QUENTE}: ${REPLY_TONE.QUENTE}
+- Se houver ${CRITERIA.MORNO}: ${REPLY_TONE.MORNO}
+- Se for ${CRITERIA.FRIO}: ${REPLY_TONE.FRIO}`;
 
 export function fallbackReply(name: string, temperature: Temperature = "MORNO") {
   const first = name.trim().split(/\s+/)[0] || "cliente";
@@ -240,22 +252,23 @@ export function sanitizeReply(
 /** Teto de saída da resposta: cabe com folga no texto pedido e evita respostas longas (e lentas). */
 const REPLY_MAX_TOKENS = 256;
 
+export type GeneratedReply =
+  | { text: string; fallback: null }
+  | { text: null; fallback: "filtered" | "truncated" };
+
 /**
- * Resposta personalizada. `fallback` diz quando o texto padrão entrou no lugar da IA:
- * "filtered" (citou preço ou prazo) ou "truncated" (a IA parou no limite de tokens).
+ * Resposta personalizada, gerada em paralelo com a classificação. Com `fallback`, quem chama usa o
+ * texto padrão da temperatura classificada: "filtered" (citou preço ou prazo) ou "truncated"
+ * (a IA parou no limite de tokens).
  */
-export async function generateReply(
-  input: LeadInput,
-  temperature: Temperature,
-): Promise<{ text: string; fallback: "filtered" | "truncated" | null }> {
-  const system = `${REPLY_SYSTEM}\n\nTom para este pedido: ${REPLY_TONE[temperature]}`;
+export async function generateReply(input: LeadInput): Promise<GeneratedReply> {
   const { text, truncated } = await complete({
     task: "resposta",
-    system,
+    system: `${REPLY_SYSTEM}\n\n${REPLY_TONE_RULES}`,
     user: leadAsData(input),
     maxTokens: REPLY_MAX_TOKENS,
   });
-  if (truncated) return { text: fallbackReply(input.name, temperature), fallback: "truncated" };
-  const clean = sanitizeReply(text, input.name, temperature);
-  return { text: clean.text, fallback: clean.replaced ? "filtered" : null };
+  if (truncated) return { text: null, fallback: "truncated" };
+  const clean = sanitizeReply(text, input.name);
+  return clean.replaced ? { text: null, fallback: "filtered" } : { text: clean.text, fallback: null };
 }

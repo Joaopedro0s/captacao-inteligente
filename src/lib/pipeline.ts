@@ -1,5 +1,12 @@
 import type { Prisma } from "@/generated/prisma/client";
-import { classifyLead, fallbackReply, FALLBACK_CLASSIFICATION, generateReply, type Classification } from "./ai";
+import {
+  classifyLead,
+  fallbackReply,
+  FALLBACK_CLASSIFICATION,
+  generateReply,
+  type Classification,
+  type GeneratedReply,
+} from "./ai";
 import { config } from "./config";
 import { prisma } from "./db";
 import { resolveRecipient, sendEmail } from "./email";
@@ -23,6 +30,10 @@ const waiting = (key: Step["key"], label: string, status: "pendente" | "executan
  */
 export async function processLead(input: LeadInput, validationStep: Step) {
   const steps: Step[] = [validationStep];
+
+  // A resposta começa junto com a classificação: ela escolhe o tom com os mesmos critérios,
+  // então não precisa esperar. A etapa só é registrada depois da gravação, na ordem do fluxo.
+  const replying = settle(generateReply(input));
 
   // 2. Classificação por IA (com fallback "morno")
   let classification: Classification = FALLBACK_CLASSIFICATION;
@@ -52,9 +63,9 @@ export async function processLead(input: LeadInput, validationStep: Step) {
     });
   }
 
-  // 3 e 4 em paralelo: a resposta depende só da classificação, não da gravação.
-  // (Classificação e resposta não rodam juntas porque o tom da resposta segue a classificação.)
-  const [saved, replied] = await Promise.all([saveLead(input, classification, steps), replyStep(input, classification)]);
+  // 3. Gravação (a resposta pode ainda estar em execução)
+  const saved = await saveLead(input, classification, steps);
+  const replied = replyStep(await replying, input.name, classification);
   const leadId = saved.leadId;
   const reply = replied.reply;
   steps.push(saved.step, replied.step);
@@ -139,26 +150,36 @@ async function saveLead(input: LeadInput, classification: Classification, done: 
   }
 }
 
+type Settled<T> = { ok: true; value: T; ms: number } | { ok: false; error: unknown; ms: number };
+
+/** Mede a promessa e nunca rejeita: o resultado é lido depois, sem deixar rejeição solta. */
+async function settle<T>(promise: Promise<T>): Promise<Settled<T>> {
+  const t = performance.now();
+  try {
+    return { ok: true, value: await promise, ms: elapsed(t) };
+  } catch (error) {
+    return { ok: false, error, ms: elapsed(t) };
+  }
+}
+
 /**
  * 4. Resposta personalizada. Texto padrão no lugar da IA vira "ok (padrão)": quando a IA
  * passa de 8 s, cita preço ou prazo, ou para no limite de tokens. Erro da IA continua erro.
  */
-async function replyStep(input: LeadInput, classification: Classification): Promise<{ reply: string; step: Step }> {
-  const t = performance.now();
-  const base = { key: "resposta", label: "Resposta personalizada" } as const;
-  const fallback = fallbackReply(input.name, classification.temperature);
-  try {
-    const generated = await generateReply(input, classification.temperature);
-    if (!generated.fallback) return { reply: generated.text, step: { ...base, status: "ok", ms: elapsed(t) } };
-    const detail = generated.fallback === "truncated" ? STEP_MESSAGES.replyTruncated : STEP_MESSAGES.replyFiltered;
-    return { reply: generated.text, step: { ...base, status: "ok", fallback: true, detail, ms: elapsed(t) } };
-  } catch (err) {
-    if (err instanceof DeadlineError) {
-      return { reply: fallback, step: { ...base, status: "ok", fallback: true, detail: STEP_MESSAGES.replySlow, ms: elapsed(t) } };
+function replyStep(result: Settled<GeneratedReply>, name: string, classification: Classification): { reply: string; step: Step } {
+  const base = { key: "resposta", label: "Resposta personalizada", ms: result.ms } as const;
+  const fallback = fallbackReply(name, classification.temperature);
+  if (!result.ok) {
+    if (result.error instanceof DeadlineError) {
+      return { reply: fallback, step: { ...base, status: "ok", fallback: true, detail: STEP_MESSAGES.replySlow } };
     }
-    console.error("lead: falha ao gerar resposta por IA", err);
-    return { reply: fallback, step: { ...base, status: "erro", detail: STEP_MESSAGES.aiUnavailableReply, ms: elapsed(t) } };
+    console.error("lead: falha ao gerar resposta por IA", result.error);
+    return { reply: fallback, step: { ...base, status: "erro", detail: STEP_MESSAGES.aiUnavailableReply } };
   }
+  const generated = result.value;
+  if (generated.text !== null) return { reply: generated.text, step: { ...base, status: "ok" } };
+  const detail = generated.fallback === "truncated" ? STEP_MESSAGES.replyTruncated : STEP_MESSAGES.replyFiltered;
+  return { reply: fallback, step: { ...base, status: "ok", fallback: true, detail } };
 }
 
 /** Atualiza o lead no banco sem derrubar o fluxo: se falhar, o painel expira o lead depois de 60 s. */
