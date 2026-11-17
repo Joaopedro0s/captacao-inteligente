@@ -184,7 +184,8 @@ export function LeadsPanel() {
       </div>
 
       {data && (
-        <dl className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        // Celular: total ocupa a linha inteira e os 4 restantes formam 2×2, sem card sobrando.
+        <dl className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-5">
           {[
             ["Leads", data.counts.total],
             ["Quentes", data.counts.QUENTE],
@@ -192,7 +193,7 @@ export function LeadsPanel() {
             ["Frios", data.counts.FRIO],
             ["Parciais", data.counts.PARCIAL],
           ].map(([name, value]) => (
-            <div key={name} className="flex flex-col rounded-xl border border-line bg-surface p-5">
+            <div key={name} className="flex flex-col rounded-xl border border-line bg-surface p-5 first:col-span-2 sm:first:col-span-1">
               <dt className="mt-2 text-sm text-muted">{name}</dt>
               <dd className="order-first font-mono text-4xl font-medium">{value}</dd>
             </div>
