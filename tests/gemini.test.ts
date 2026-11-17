@@ -132,6 +132,21 @@ describe("latência e tentativas", () => {
     expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(2);
   });
 
+  it("as duas tentativas de formato da classificação dividem o mesmo limite total", async () => {
+    Object.assign(config, { aiTimeoutMs: 1000, aiBudgetMs: 80 });
+    // 1ª chamada: JSON inválido depois de 60 ms. 2ª: nunca responde.
+    fetchMock
+      .mockImplementationOnce(() => new Promise((r) => setTimeout(() => r(geminiText("não sei")), 60)))
+      .mockImplementationOnce(
+        (_url, init) => new Promise((_, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal!.reason))),
+      );
+
+    const started = performance.now();
+    await expect(classifyLead(lead)).rejects.toBeInstanceOf(DeadlineError);
+    // Sem limite compartilhado, a 2ª tentativa teria mais 80 ms (ou o timeout de 1 s) só para ela.
+    expect(performance.now() - started).toBeLessThan(140);
+  });
+
   it("limita os tokens da resposta e troca texto cortado pelo padrão", async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "Olá, Ana. A vitrificação" }] }, finishReason: "MAX_TOKENS" }] })),

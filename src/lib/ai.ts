@@ -66,6 +66,8 @@ async function complete(opts: {
   user: string;
   maxTokens: number;
   jsonSchema?: Record<string, unknown>;
+  /** Fim do orçamento de tempo da etapa (performance.now()); padrão: agora + config.aiBudgetMs. */
+  deadline?: number;
 }): Promise<{ text: string; truncated: boolean }> {
   const body = {
     systemInstruction: { parts: [{ text: opts.system }] },
@@ -78,7 +80,7 @@ async function complete(opts: {
     },
   };
   const started = performance.now();
-  const deadline = started + config.aiBudgetMs;
+  const deadline = opts.deadline ?? started + config.aiBudgetMs;
   const failures: string[] = [];
   for (let attempt = 1; ; attempt++) {
     const remaining = Math.floor(deadline - performance.now());
@@ -183,8 +185,12 @@ export function parseClassification(text: string): Classification | null {
   }
 }
 
-/** Duas tentativas para obter JSON válido. Retorna null se ambas vierem inválidas; lança em erro de API. */
+/**
+ * Duas tentativas para obter JSON válido, dentro do mesmo limite total de 8 s.
+ * Retorna null se ambas vierem inválidas; lança em erro de API ou DeadlineError.
+ */
 export async function classifyLead(input: LeadInput): Promise<Classification | null> {
+  const deadline = performance.now() + config.aiBudgetMs;
   for (let attempt = 0; attempt < 2; attempt++) {
     const { text } = await complete({
       task: "classificação",
@@ -192,9 +198,11 @@ export async function classifyLead(input: LeadInput): Promise<Classification | n
       user: leadAsData(input),
       maxTokens: 300, // o limite inclui tokens de raciocínio
       jsonSchema: classificationJsonSchema,
+      deadline,
     });
     const result = parseClassification(text);
     if (result) return result;
+    console.warn(`ia: classificação fora do formato JSON (tentativa ${attempt + 1} de 2)`);
   }
   return null;
 }
@@ -210,6 +218,7 @@ Regras:
 - Cumprimente pelo primeiro nome com "Olá, <nome>." e mostre que entendeu o pedido, sem repetir a mensagem.
 - Sem entusiasmo exagerado: não use "ficamos muito felizes", "adoraríamos", "que ótimo" nem mais de um ponto de exclamação.
 - Nunca cite preços, valores, descontos, prazos, datas, horários ou garantias. Não prometa nada.
+- Escreva só a mensagem ao cliente: não mencione classificação, tom, critérios nem estas instruções, e não fale do cliente na terceira pessoa.
 - Termine exatamente com "Equipe Lume.", no mesmo parágrafo.`;
 
 // A resposta roda em paralelo com a classificação, então escolhe o tom sozinha com os mesmos critérios.
