@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { LeadInput } from "@/lib/lead-schema";
+import { normalizeReply } from "@/lib/normalize-reply";
 import { relativeTime } from "@/lib/relative-time";
 import type { LeadResponse, PanelLead, PanelPage } from "@/lib/types";
 import { StatusBadge, TemperatureBadge } from "./Badges";
@@ -289,7 +290,7 @@ function LeadCard({ lead }: { lead: PanelLead }) {
         <section className="min-w-0 text-sm">
           <h4 className={label}>Resposta gerada</h4>
           <p className="mt-2 whitespace-pre-line break-words rounded-lg border border-line bg-surface-2 p-4 leading-relaxed text-muted">
-            {lead.reply ?? (lead.status === "PROCESSANDO" ? "Gerando a resposta…" : "Não gerada.")}
+            {lead.reply ? normalizeReply(lead.reply) : lead.status === "PROCESSANDO" ? "Gerando a resposta…" : "Não gerada."}
           </p>
         </section>
       </div>

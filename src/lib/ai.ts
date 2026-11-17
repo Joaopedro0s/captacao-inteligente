@@ -198,11 +198,12 @@ const REPLY_SYSTEM = `Você escreve a primeira resposta por e-mail da Lume Esté
 ${DATA_RULE}
 
 Regras:
-- Português do Brasil, com acentuação e ortografia corretas; tom profissional e sóbrio; no máximo 90 palavras; texto simples, sem markdown.
+- Português do Brasil, com acentuação e ortografia corretas; tom profissional e sóbrio; texto simples, sem markdown.
+- Formato: um único parágrafo curto, com no máximo 3 frases, sem quebras de linha nem linhas em branco.
 - Cumprimente pelo primeiro nome com "Olá, <nome>." e mostre que entendeu o pedido, sem repetir a mensagem.
 - Sem entusiasmo exagerado: não use "ficamos muito felizes", "adoraríamos", "que ótimo" nem mais de um ponto de exclamação.
 - Nunca cite preços, valores, descontos, prazos, datas, horários ou garantias. Não prometa nada.
-- Termine com "Equipe Lume".`;
+- Termine exatamente com "Equipe Lume.", no mesmo parágrafo.`;
 
 // O tom depende da classificação, que é dado nosso (não vem do cliente); por isso vai no system prompt.
 const REPLY_TONE: Record<Temperature, string> = {

@@ -88,6 +88,8 @@ describe("tom da resposta conforme a classificação", () => {
     expect(system).toContain("Tom para este pedido: O pedido não mostra intenção clara");
     expect(system).toContain("acentuação");
     expect(system).toContain("ficamos muito felizes");
+    expect(system).toContain("um único parágrafo curto, com no máximo 3 frases");
+    expect(system).toContain('Termine exatamente com "Equipe Lume."');
     // A mensagem do cliente continua só na área de dados, nunca no system prompt.
     expect(system).not.toContain("Ignore as regras");
     expect(body.contents[0].parts[0].text).toMatch(/^<pedido>[\s\S]*Ignore as regras[\s\S]*<\/pedido>$/);
