@@ -16,6 +16,7 @@ import { maskEmail } from "./mask";
 import { DeadlineError } from "./retry";
 import { STEP_MESSAGES } from "./step-messages";
 import type { Step } from "./types";
+import { logError } from "./log";
 
 const elapsed = (start: number) => Math.round(performance.now() - start);
 const asJson = (steps: Step[]) => steps as unknown as Prisma.InputJsonValue;
@@ -53,7 +54,7 @@ export async function processLead(input: LeadInput, validationStep: Step) {
       });
     }
   } catch (err) {
-    console.error("lead: falha na classificação por IA", err);
+    logError("lead: falha na classificação por IA", err);
     steps.push({
       key: "classificacao",
       label: "Classificação por IA",
@@ -144,7 +145,7 @@ async function saveLead(input: LeadInput, classification: Classification, done: 
     const step: Step = { key: "gravacao", label: "Gravação no banco", status: "ok", ms: elapsed(t) };
     return { leadId: lead.id as string | null, step };
   } catch (err) {
-    console.error("lead: falha ao gravar", err);
+    logError("lead: falha ao gravar", err);
     const step: Step = { key: "gravacao", label: "Gravação no banco", status: "erro", detail: STEP_MESSAGES.dbFailed, ms: elapsed(t) };
     return { leadId: null, step };
   }
@@ -173,7 +174,7 @@ function replyStep(result: Settled<GeneratedReply>, name: string, classification
     if (result.error instanceof DeadlineError) {
       return { reply: fallback, step: { ...base, status: "ok", fallback: true, detail: STEP_MESSAGES.replySlow } };
     }
-    console.error("lead: falha ao gerar resposta por IA", result.error);
+    logError("lead: falha ao gerar resposta por IA", result.error);
     return { reply: fallback, step: { ...base, status: "erro", detail: STEP_MESSAGES.aiUnavailableReply } };
   }
   const generated = result.value;
@@ -184,7 +185,7 @@ function replyStep(result: Settled<GeneratedReply>, name: string, classification
 
 /** Atualiza o lead no banco sem derrubar o fluxo: se falhar, o painel expira o lead depois de 60 s. */
 function saveProgress(id: string, data: Prisma.LeadUpdateInput) {
-  return prisma.lead.update({ where: { id }, data }).catch((err) => console.error("lead: falha ao atualizar etapas", err));
+  return prisma.lead.update({ where: { id }, data }).catch((err) => logError("lead: falha ao atualizar etapas", err));
 }
 
 async function emailStep(
@@ -204,7 +205,7 @@ async function emailStep(
     await sendEmail(recipient.to, subject, lines.join("\n"));
     return { key, label, status: "ok", ms: elapsed(t) };
   } catch (err) {
-    console.error(`lead: falha no ${key}`, err);
+    logError(`lead: falha no ${key}`, err);
     return { key, label, status: "erro", detail: STEP_MESSAGES.emailFailed, ms: elapsed(t) };
   }
 }

@@ -46,7 +46,8 @@ describe("erros de provedores nunca chegam ao cliente", () => {
     expect(detail("classificacao")).toBe(STEP_MESSAGES.aiUnavailableClassification);
     expect(detail("resposta")).toBe(STEP_MESSAGES.aiUnavailableReply);
     expect(detail("email_cliente")).toBe(STEP_MESSAGES.emailFailed);
-    expect(console.error).toHaveBeenCalledWith(expect.any(String), providerError);
+    // O erro real vai ao log do servidor, resumido à 1ª linha.
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining("Gemini 400"));
   });
 
   it("publicSteps troca qualquer detalhe fora da lista, inclusive de registros antigos", () => {
@@ -63,5 +64,18 @@ describe("erros de provedores nunca chegam ao cliente", () => {
       "Falha nesta etapa.",
       STEP_MESSAGES.replyFiltered,
     ]);
+  });
+});
+
+describe("log do servidor", () => {
+  it("não grava os dados da consulta que o Prisma repete na mensagem de erro", async () => {
+    const { describeError } = await import("@/lib/log");
+    const prismaError = Object.assign(
+      new Error('\nInvalid `prisma.lead.create()` invocation:\n\n{\n  data: {\n    message: "Quero polir o carro antes da viagem."\n  }\n}\n\nArgument `consentAt` is missing.'),
+      { name: "PrismaClientValidationError" },
+    );
+    const line = describeError(prismaError);
+    expect(line).toBe("PrismaClientValidationError: Invalid `prisma.lead.create()` invocation:");
+    expect(line).not.toContain("Quero polir");
   });
 });

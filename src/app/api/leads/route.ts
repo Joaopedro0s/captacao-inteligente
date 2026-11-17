@@ -5,6 +5,7 @@ import { expireSteps, leadStatus, STUCK_AFTER_MS } from "@/lib/lead-status";
 import { maskEmail, maskName, maskPhone, truncateMessage } from "@/lib/mask";
 import { publicSteps } from "@/lib/step-messages";
 import type { PanelPage, Step } from "@/lib/types";
+import { logError } from "@/lib/log";
 
 const PAGE_SIZE = 10;
 
@@ -49,7 +50,7 @@ export async function GET(request: Request) {
     };
     return Response.json(body, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
-    console.error("leads: falha ao listar", err);
+    logError("leads: falha ao listar", err);
     return Response.json({ error: "Não foi possível carregar os leads." }, { status: 503 });
   }
 }

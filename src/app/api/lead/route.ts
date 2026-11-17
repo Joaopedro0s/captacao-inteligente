@@ -4,6 +4,7 @@ import { processLead } from "@/lib/pipeline";
 import { checkAndRecord, clientIp, hashIp } from "@/lib/rate-limit";
 import { publicSteps } from "@/lib/step-messages";
 import type { LeadResponse } from "@/lib/types";
+import { logError } from "@/lib/log";
 
 const fail = (status: number, error: string, extra: Partial<Extract<LeadResponse, { ok: false }>> = {}, headers?: HeadersInit) =>
   Response.json({ ok: false, error, ...extra } satisfies LeadResponse, { status, headers });
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
     const decision = await checkAndRecord(hashIp(clientIp(request.headers)));
     if (!decision.ok) return fail(429, decision.message, {}, { "Retry-After": String(decision.retryAfterSec) });
   } catch (err) {
-    console.error("lead: falha ao checar limites", err);
+    logError("lead: falha ao checar limites", err);
     return fail(503, "Serviço temporariamente indisponível. Tente novamente em alguns minutos.");
   }
 
